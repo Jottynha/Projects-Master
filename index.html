@@ -217,6 +217,14 @@
               <button class="view-switch-button active" type="button" data-project-view="board">Quadro</button>
               <button class="view-switch-button" type="button" data-project-view="timeline">Timeline</button>
             </div>
+            <div id="timelineControls" class="timeline-controls hidden">
+              <select id="timelineSortField" aria-label="Ordenar timeline por">
+                <option value="due_date">Entrega</option>
+                <option value="start_date">Início</option>
+                <option value="completed_at">Conclusão</option>
+              </select>
+              <button id="timelineSortDirection" class="ghost-button compact-button" type="button" aria-label="Alternar ordem">↓ Descendente</button>
+            </div>
           </div>
 
           <div id="projectsBoard" class="project-board"></div>
@@ -343,6 +351,10 @@
               <label class="field">
                 <span>Data de entrega</span>
                 <input id="projectDueDate" type="date">
+              </label>
+              <label class="field">
+                <span>Data de conclusão</span>
+                <input id="projectCompletedDate" type="date">
               </label>
               <div class="field span-2">
                 <span>Cor do projeto</span>

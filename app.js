@@ -43,6 +43,8 @@
     currentProjectId: null,
     deleteProjectId: null,
     projectView: 'board',
+    timelineSortField: 'due_date',
+    timelineSortDirection: 'desc',
     steps: [],
     toastTimer: null
   };
@@ -105,6 +107,9 @@
     projectsTimeline: $('#projectsTimeline'),
     emptyProjects: $('#emptyProjects'),
     projectViewButtons: $$('[data-project-view]'),
+    timelineControls: $('#timelineControls'),
+    timelineSortField: $('#timelineSortField'),
+    timelineSortDirection: $('#timelineSortDirection'),
     projectDialog: $('#projectDialog'),
     closeProjectDialog: $('#closeProjectDialog'),
     cancelProjectButton: $('#cancelProjectButton'),
@@ -123,6 +128,7 @@
     projectColorPicker: $('#projectColorPicker'),
     projectStartDate: $('#projectStartDate'),
     projectDueDate: $('#projectDueDate'),
+    projectCompletedDate: $('#projectCompletedDate'),
     stepBuilder: $('#stepBuilder'),
     addStep: $('#addStep'),
     saveProjectButton: $('#saveProjectButton'),
@@ -469,6 +475,7 @@
     state.projectView = view;
     refs.projectsBoard.classList.toggle('hidden', view !== 'board');
     refs.projectsTimeline.classList.toggle('hidden', view !== 'timeline');
+    refs.timelineControls.classList.toggle('hidden', view !== 'timeline');
     refs.projectViewButtons.forEach((button) => button.classList.toggle('active', button.dataset.projectView === view));
     renderProjects();
   }
@@ -752,19 +759,42 @@
     refs.projectFolderDialog.showModal();
   }
 
+  function getTimelineProjectDate(project, field = state.timelineSortField) {
+    if (field === 'start_date') return project.start_date || '';
+    if (field === 'completed_at') return project.completed_at ? project.completed_at.slice(0, 10) : '';
+    return project.due_date || '';
+  }
+
+  function timelineSortLabel(field = state.timelineSortField) {
+    return {
+      start_date: 'Início',
+      due_date: 'Entrega',
+      completed_at: 'Conclusão'
+    }[field] || 'Entrega';
+  }
+
+  function compareTimelineDates(a, b) {
+    const dateA = getTimelineProjectDate(a) || '';
+    const dateB = getTimelineProjectDate(b) || '';
+
+    if (!dateA && !dateB) return 0;
+    if (!dateA) return 1;
+    if (!dateB) return -1;
+
+    const comparison = dateA.localeCompare(dateB);
+    return state.timelineSortDirection === 'asc' ? comparison : -comparison;
+  }
+
   function renderPortfolioTimeline(projects) {
-    const sorted = [...projects].sort((a, b) => {
-      const dateA = timelineDate(a) || '0000-00-00';
-      const dateB = timelineDate(b) || '0000-00-00';
-      return dateB.localeCompare(dateA);
-    });
+    const sorted = [...projects].sort(compareTimelineDates);
+    const dateLabel = timelineSortLabel();
 
     refs.projectsTimeline.innerHTML = sorted.map((project) => {
       const card = document.createElement('article');
       card.className = 'portfolio-card';
       card.dataset.openProject = project.id;
       setAccent(card, project.accent_color);
-      const date = timelineDate(project);
+      const date = getTimelineProjectDate(project);
       const stats = checklistStats(project);
       card.innerHTML = `
         <div class="portfolio-card-head">
@@ -782,7 +812,7 @@
 
       const row = document.createElement('div');
       row.className = 'portfolio-row';
-      row.innerHTML = `<div class="portfolio-date"><strong>${escapeHtml(date ? formatDate(date) : '—')}</strong><span>${escapeHtml(project.status)}</span></div>`;
+      row.innerHTML = `<div class="portfolio-date"><strong>${escapeHtml(date ? formatDate(date) : '—')}</strong><span>${escapeHtml(dateLabel)}</span></div>`;
       row.appendChild(card);
       return row.outerHTML;
     }).join('');
@@ -815,6 +845,7 @@
     refs.projectStatus.value = 'Backlog';
     refs.projectPriority.value = 'Média';
     refs.projectColor.value = PROJECT_COLORS[0];
+    refs.projectCompletedDate.value = '';
     setColorPicker(PROJECT_COLORS[0]);
     state.steps = [];
     renderStepBuilder();
@@ -844,6 +875,7 @@
     refs.projectTags.value = tagsText(project.tags);
     refs.projectStartDate.value = project.start_date || '';
     refs.projectDueDate.value = project.due_date || '';
+    refs.projectCompletedDate.value = project.completed_at ? project.completed_at.slice(0, 10) : '';
     setColorPicker(project.accent_color || PROJECT_COLORS[0]);
     state.steps = normalizeChecklist(project.checklist);
     renderStepBuilder();
@@ -879,6 +911,10 @@
       checklist = checklist.map((step) => ({ ...step, done: true }));
     }
 
+    const completionDate = status === 'Concluído'
+      ? (refs.projectCompletedDate.value || todayIso())
+      : null;
+
     const payload = {
       title,
       description: refs.projectDescription.value.trim() || null,
@@ -887,6 +923,7 @@
       priority: refs.projectPriority.value,
       start_date: refs.projectStartDate.value || null,
       due_date: refs.projectDueDate.value || null,
+      completed_at: completionDate ? `${completionDate}T12:00:00` : null,
       tags: parseTags(refs.projectTags.value),
       accent_color: safeColor(refs.projectColor.value),
       checklist
@@ -1346,6 +1383,15 @@
       control.addEventListener('change', renderProjects);
     });
     refs.projectViewButtons.forEach((button) => button.addEventListener('click', () => setProjectView(button.dataset.projectView)));
+    refs.timelineSortField.addEventListener('change', (event) => {
+      state.timelineSortField = event.target.value;
+      renderProjects();
+    });
+    refs.timelineSortDirection.addEventListener('click', () => {
+      state.timelineSortDirection = state.timelineSortDirection === 'asc' ? 'desc' : 'asc';
+      refs.timelineSortDirection.textContent = state.timelineSortDirection === 'asc' ? '↑ Crescente' : '↓ Descendente';
+      renderProjects();
+    });
 
     [refs.projectsTimeline, refs.upcomingProjects, refs.dashboardTimeline].forEach((container) => {
       container.addEventListener('click', (event) => {
