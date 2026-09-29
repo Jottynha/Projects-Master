@@ -189,7 +189,10 @@
         <section id="projectsView" class="view-section hidden">
 
           <div class="project-toolbar">
-            <button id="newProjectButton" class="primary-button project-new-button" type="button">Novo projeto</button>
+            <div class="project-toolbar-start">
+              <button id="newProjectButton" class="primary-button project-new-button" type="button">Novo projeto</button>
+              <button id="backupAllButton" class="ghost-button" type="button">Backup geral</button>
+            </div>
             <label class="search-field">
               <span class="sr-only">Buscar</span>
               <input id="projectSearch" type="search" placeholder="Buscar projeto...">
@@ -309,6 +312,10 @@
               <label class="field span-2">
                 <span>Descrição</span>
                 <textarea id="projectDescription" maxlength="5000" placeholder="Objetivo, escopo e observações"></textarea>
+              </label>
+              <label class="field span-2">
+                <span>Resultados obtidos</span>
+                <textarea id="projectResults" maxlength="10000" placeholder="Registre os resultados alcançados, ganhos, indicadores, aprendizados ou entregas finais."></textarea>
               </label>
               <label class="field">
                 <span>Categoria</span>

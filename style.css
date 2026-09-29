@@ -546,10 +546,11 @@ img { display: block; max-width: 100%; }
 /* PROJECTS */
 .project-toolbar {
   display: grid;
-  grid-template-columns: minmax(220px,1fr) 155px 155px 185px auto;
+  grid-template-columns: minmax(245px,auto) minmax(220px,1fr) 155px 155px 185px auto auto;
   gap: 8px;
   align-items: center;
 }
+.project-toolbar-start { display: flex; align-items: center; gap: 8px; }
 .search-field { display: block; }
 .project-toolbar input { min-height: 39px; }
 .project-toolbar select { min-height: 39px; }
@@ -824,7 +825,8 @@ dialog::backdrop { background: rgba(4,24,48,.52); backdrop-filter: blur(3px); }
 .detail-kicker { display: flex; flex-wrap: wrap; gap: 6px; }
 .detail-title { margin: 10px 0 6px; color: var(--gray-950); font-family: 'DM Sans', Inter, sans-serif; font-size: 26px; letter-spacing: -.045em; }
 .detail-description { max-width: 720px; margin: 0; color: var(--gray-700); font-size: 10px; line-height: 1.75; }
-.detail-actions { display: flex; align-items: flex-start; gap: 7px; }
+.detail-actions { display: flex; align-items: flex-start; justify-content: flex-end; flex-wrap: wrap; gap: 7px; }
+.detail-result-copy { margin: 11px 0 0; color: var(--gray-700); font-size: 10px; line-height: 1.75; white-space: pre-wrap; }
 .detail-content { display: grid; grid-template-columns: minmax(0,1.35fr) minmax(260px,.65fr); gap: 12px; padding: 17px 22px 22px; }
 .detail-main { display: grid; gap: 11px; }
 .detail-side { display: grid; gap: 11px; align-content: start; }
@@ -925,6 +927,7 @@ dialog::backdrop { background: rgba(4,24,48,.52); backdrop-filter: blur(3px); }
 
 @media (max-width: 1180px) {
   .project-toolbar { grid-template-columns: repeat(3, minmax(0,1fr)); }
+  .project-toolbar-start { justify-content: flex-start; }
   .search-field { grid-column: span 2; }
   .view-switch, .timeline-controls { justify-self: start; }
   .project-board { grid-template-columns: repeat(6, minmax(180px,1fr)); }
@@ -949,6 +952,7 @@ dialog::backdrop { background: rgba(4,24,48,.52); backdrop-filter: blur(3px); }
 }
 
 @media (max-width: 720px) {
+  .project-toolbar-start { flex-wrap: wrap; }
   .content-wrap { padding: 21px 17px 36px; }
   .topbar { padding: 12px 17px; }
   .metrics-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
@@ -1251,7 +1255,7 @@ body[data-theme="dark"] .detail-tag { color: #7DBBFF; }
 @media (max-width: 980px) {
   .settings-grid { grid-template-columns: 1fr; max-width: none; }
   .project-toolbar { grid-template-columns: 1fr 1fr; }
-  .project-new-button { grid-column: span 2; justify-self: start; }
+  .project-toolbar-start { grid-column: span 2; justify-self: start; }
   .search-field { grid-column: span 2; }
   .view-switch, .timeline-controls { justify-self: start; }
   .project-board { grid-template-columns: repeat(2, minmax(0,1fr)); }
@@ -1261,7 +1265,7 @@ body[data-theme="dark"] .detail-tag { color: #7DBBFF; }
 @media (max-width: 620px) {
   .project-board, .folder-grid { grid-template-columns: 1fr; }
   .project-toolbar { grid-template-columns: 1fr; }
-  .project-new-button, .search-field, .project-toolbar .view-switch { grid-column: auto; }
+  .project-toolbar-start, .search-field, .project-toolbar .view-switch { grid-column: auto; }
   .folder-grid { gap: 10px; }
 }
 

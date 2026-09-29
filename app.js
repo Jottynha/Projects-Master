@@ -87,6 +87,7 @@
     userEmail: $('#userEmail'),
     logoutButton: $('#logoutButton'),
     newProjectButton: $('#newProjectButton'),
+    backupAllButton: $('#backupAllButton'),
     dashboardView: $('#dashboardView'),
     projectsView: $('#projectsView'),
     settingsView: $('#settingsView'),
@@ -120,6 +121,7 @@
     projectId: $('#projectId'),
     projectTitle: $('#projectTitle'),
     projectDescription: $('#projectDescription'),
+    projectResults: $('#projectResults'),
     projectStatus: $('#projectStatus'),
     projectPriority: $('#projectPriority'),
     projectCategory: $('#projectCategory'),
@@ -201,6 +203,41 @@
       day: '2-digit', month: '2-digit', year: 'numeric',
       hour: '2-digit', minute: '2-digit'
     }).format(date);
+  }
+
+  function downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  function safeDownloadName(value, fallback = 'projeto') {
+    return safeFileName(value) || fallback;
+  }
+
+  function projectBackupRecord(project, attachments = []) {
+    return {
+      ...project,
+      checklist: normalizeChecklist(project.checklist),
+      tags: Array.isArray(project.tags) ? project.tags : [],
+      attachments: attachments.map((item) => ({
+        id: item.id,
+        attachment_type: item.attachment_type,
+        name: item.name,
+        external_url: item.external_url || null,
+        storage_path: item.storage_path || null,
+        mime_type: item.mime_type || null,
+        size_bytes: item.size_bytes ?? null,
+        description: item.description || null,
+        created_at: item.created_at || null,
+        updated_at: item.updated_at || null
+      }))
+    };
   }
 
   function todayIso() {
@@ -870,6 +907,7 @@
     refs.projectStatus.value = 'Backlog';
     refs.projectPriority.value = 'Média';
     refs.projectCompletedDate.value = '';
+    refs.projectResults.value = '';
     setColorPicker(PROJECT_COLORS[0]);
     state.steps = [];
     renderStepBuilder();
@@ -900,6 +938,7 @@
     refs.projectStartDate.value = project.start_date || '';
     refs.projectDueDate.value = project.due_date || '';
     refs.projectCompletedDate.value = project.completed_at ? project.completed_at.slice(0, 10) : '';
+    refs.projectResults.value = project.results || '';
     setColorPicker(project.accent_color || PROJECT_COLORS[0]);
     state.steps = normalizeChecklist(project.checklist);
     renderStepBuilder();
@@ -922,6 +961,7 @@
     if (!supabaseClient || !state.user) return;
 
     const id = refs.projectId.value || null;
+    const existingProject = id ? projectById(id) : null;
     const title = refs.projectTitle.value.trim();
     if (!title) {
       setMessage(refs.projectFormMessage, 'Informe o nome do projeto.');
@@ -936,12 +976,13 @@
     }
 
     const completionDate = status === 'Concluído'
-      ? (refs.projectCompletedDate.value || todayIso())
+      ? (refs.projectCompletedDate.value || (existingProject?.completed_at ? existingProject.completed_at.slice(0, 10) : todayIso()))
       : null;
 
     const payload = {
       title,
       description: refs.projectDescription.value.trim() || null,
+      results: refs.projectResults.value.trim() || null,
       category: refs.projectCategory.value.trim() || null,
       status,
       priority: refs.projectPriority.value,
@@ -1007,9 +1048,13 @@
         ? 'Em andamento'
         : project.status;
 
+    const completedAt = nextStatus === 'Concluído'
+      ? (project.completed_at || `${todayIso()}T12:00:00`)
+      : null;
+
     const { data, error } = await supabaseClient
       .from('projects')
-      .update({ checklist, status: nextStatus })
+      .update({ checklist, status: nextStatus, completed_at: completedAt })
       .eq('id', project.id)
       .select('*')
       .single();
@@ -1042,7 +1087,7 @@
     const status = project.status === 'Concluído' ? 'Em andamento' : project.status;
     const { data, error } = await supabaseClient
       .from('projects')
-      .update({ checklist, status })
+      .update({ checklist, status, completed_at: null })
       .eq('id', project.id)
       .select('*')
       .single();
@@ -1249,6 +1294,8 @@
             <p class="detail-description">${escapeHtml(project.description || 'Sem descrição cadastrada.')}</p>
           </div>
           <div class="detail-actions">
+            <button class="ghost-button" type="button" data-detail-action="backup-pdf" data-id="${escapeHtml(project.id)}">Salvar PDF</button>
+            <button class="ghost-button" type="button" data-detail-action="backup-json" data-id="${escapeHtml(project.id)}">Backup JSON</button>
             <button class="ghost-button" type="button" data-detail-action="edit" data-id="${escapeHtml(project.id)}">Editar</button>
             <button class="danger-button" type="button" data-detail-action="delete" data-id="${escapeHtml(project.id)}">Excluir</button>
             <button class="icon-button" type="button" data-detail-action="close" aria-label="Fechar">×</button>
@@ -1257,6 +1304,11 @@
 
         <div class="detail-content">
           <div class="detail-main">
+            <section class="detail-panel">
+              <div class="detail-panel-title"><h3>Resultados obtidos</h3></div>
+              <p class="detail-result-copy">${escapeHtml(project.results || 'Nenhum resultado registrado.')}</p>
+            </section>
+
             <section class="detail-panel">
               <div class="detail-panel-title">
                 <h3>Etapas</h3>
@@ -1329,6 +1381,131 @@
     `;
   }
 
+  async function loadAllAttachmentsForBackup(projectIds) {
+    if (!projectIds.length) return [];
+
+    const { data, error } = await supabaseClient
+      .from('project_attachments')
+      .select('*')
+      .in('project_id', projectIds)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  }
+
+  function attachmentsByProject(attachments) {
+    return attachments.reduce((groups, attachment) => {
+      const key = attachment.project_id;
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(attachment);
+      return groups;
+    }, {});
+  }
+
+  async function downloadProjectBackup(id) {
+    const project = projectById(id);
+    if (!project) return;
+
+    try {
+      const attachments = await loadAttachments(id);
+      const payload = {
+        backup_version: 1,
+        exported_at: new Date().toISOString(),
+        application: 'Master Projetos',
+        project: projectBackupRecord(project, attachments)
+      };
+      const filename = `${safeDownloadName(project.title)}-backup.json`;
+      downloadBlob(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' }), filename);
+      showToast('Backup do projeto baixado.');
+    } catch (error) {
+      showToast(error.message || 'Não foi possível gerar o backup.', 'error');
+    }
+  }
+
+  async function downloadAllProjectsBackup() {
+    if (!state.projects.length) {
+      showToast('Não há projetos para exportar.', 'error');
+      return;
+    }
+
+    refs.backupAllButton.disabled = true;
+    refs.backupAllButton.textContent = 'Gerando backup...';
+
+    try {
+      const projectIds = state.projects.map((project) => project.id);
+      const attachments = await loadAllAttachmentsForBackup(projectIds);
+      const grouped = attachmentsByProject(attachments);
+      const payload = {
+        backup_version: 1,
+        exported_at: new Date().toISOString(),
+        application: 'Master Projetos',
+        project_count: state.projects.length,
+        projects: state.projects.map((project) => projectBackupRecord(project, grouped[project.id] || []))
+      };
+      const stamp = todayIso();
+      downloadBlob(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' }), `master-projetos-backup-${stamp}.json`);
+      showToast('Backup geral baixado.');
+    } catch (error) {
+      showToast(error.message || 'Não foi possível gerar o backup geral.', 'error');
+    } finally {
+      refs.backupAllButton.disabled = false;
+      refs.backupAllButton.textContent = 'Backup geral';
+    }
+  }
+
+  function printProjectPdf(id) {
+    const project = projectById(id);
+    if (!project) return;
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      showToast('O navegador bloqueou a janela do PDF. Permita pop-ups para esta página.', 'error');
+      return;
+    }
+
+    printWindow.document.write('<p style="font-family:Arial,sans-serif;padding:40px">Preparando o PDF...</p>');
+    printWindow.document.close();
+
+    loadAttachments(id).then((attachments) => {
+      const checklist = normalizeChecklist(project.checklist);
+      const tags = Array.isArray(project.tags) ? project.tags : [];
+      const esc = escapeHtml;
+      const attachmentRows = attachments.length
+        ? attachments.map((item) => {
+            const label = item.attachment_type === 'link' ? 'Link' : 'Arquivo';
+            const value = item.attachment_type === 'link' ? (item.external_url || '') : (item.storage_path || item.name || '');
+            return `<li><strong>${esc(label)}:</strong> ${esc(item.name || value)}${value && value !== item.name ? ` — ${esc(value)}` : ''}</li>`;
+          }).join('')
+        : '<li>Nenhum arquivo ou link associado.</li>';
+      const stepRows = checklist.length
+        ? checklist.map((step) => `<li class="${step.done ? 'done' : ''}"><span>${step.done ? '✓' : '○'}</span>${esc(step.title)}</li>`).join('')
+        : '<li>Nenhuma etapa cadastrada.</li>';
+
+      const html = `<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><title>${esc(project.title)} — Master Projetos</title>
+<style>
+*{box-sizing:border-box}body{font-family:Arial,Helvetica,sans-serif;color:#172B3D;margin:0;padding:40px;background:#fff}main{max-width:900px;margin:auto}.brand{font-size:12px;font-weight:800;letter-spacing:.14em;color:#0C68E8;margin-bottom:28px}.head{border-bottom:3px solid ${safeColor(project.accent_color)};padding-bottom:20px}.kicker{font-size:11px;color:#66778A;font-weight:700;text-transform:uppercase;letter-spacing:.08em}.title{font-size:30px;margin:8px 0}.subtitle{font-size:13px;line-height:1.6;color:#43566A}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:18px 0}.meta{padding:12px;background:#F3F6F8;border-radius:10px}.meta span{display:block;color:#66778A;font-size:10px}.meta strong{display:block;margin-top:4px;font-size:13px}.section{margin-top:24px}.section h2{font-size:16px;margin:0 0 8px}.copy{font-size:12px;line-height:1.75;white-space:pre-wrap;color:#2F4355}.list{margin:8px 0 0;padding-left:20px;font-size:12px;line-height:1.7}.done{text-decoration:line-through;color:#7D8B97}.footer{margin-top:35px;font-size:10px;color:#8A98A4;border-top:1px solid #D9E1E7;padding-top:12px}@media print{body{padding:20px}main{max-width:none}}
+</style></head><body><main>
+<div class="brand">MASTER PROJETOS</div>
+<div class="head"><div class="kicker">${esc(project.status)} · ${esc(project.priority)}${project.category ? ` · ${esc(project.category)}` : ''}</div><div class="title">${esc(project.title)}</div><div class="subtitle">${esc(project.description || 'Sem descrição cadastrada.')}</div></div>
+<div class="grid">
+<div class="meta"><span>Início</span><strong>${esc(formatDate(project.start_date))}</strong></div>
+<div class="meta"><span>Entrega</span><strong>${esc(formatDate(project.due_date))}</strong></div>
+<div class="meta"><span>Conclusão</span><strong>${esc(project.completed_at ? formatDateTime(project.completed_at) : '—')}</strong></div>
+<div class="meta"><span>Tags</span><strong>${esc(tags.length ? tags.map((tag) => `#${tag}`).join(', ') : '—')}</strong></div>
+</div>
+<div class="section"><h2>Resultados obtidos</h2><div class="copy">${esc(project.results || 'Nenhum resultado registrado.')}</div></div>
+<div class="section"><h2>Etapas</h2><ul class="list">${stepRows}</ul></div>
+<div class="section"><h2>Arquivos e links</h2><ul class="list">${attachmentRows}</ul></div>
+<div class="footer">Exportado em ${esc(formatDateTime(new Date().toISOString()))} · Master Projetos</div>
+</main><script>window.onload=()=>{window.focus();setTimeout(()=>window.print(),250);window.onafterprint=()=>window.close();};<\/script></body></html>`;
+      printWindow.document.open();
+      printWindow.document.write(html);
+      printWindow.document.close();
+    }).catch((error) => showToast(error.message || 'Não foi possível gerar o PDF.', 'error'));
+  }
+
   /* ============================================================
      EXCLUSÃO / ESTADO
   ============================================================ */
@@ -1392,6 +1569,7 @@
 
     $$('.nav-item').forEach((button) => button.addEventListener('click', () => setView(button.dataset.view)));
     refs.newProjectButton.addEventListener('click', openNewProjectDialog);
+    refs.backupAllButton.addEventListener('click', downloadAllProjectsBackup);
     refs.refreshDashboardButton.addEventListener('click', loadProjects);
     refs.seeAllProjectsButton.addEventListener('click', () => setView('projects'));
     refs.logoutButton.addEventListener('click', handleLogout);
@@ -1497,6 +1675,14 @@
         const action = detailAction.dataset.detailAction;
         const id = detailAction.dataset.id || state.currentProjectId;
         if (action === 'close') refs.detailDialog.close();
+        if (action === 'backup-pdf') {
+          printProjectPdf(id);
+          return;
+        }
+        if (action === 'backup-json') {
+          downloadProjectBackup(id);
+          return;
+        }
         if (action === 'edit') {
           refs.detailDialog.close();
           openEditProjectDialog(id);
