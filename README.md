@@ -1,210 +1,145 @@
-# Gestor de Projetos — Master
+# Master | Gestor de Projetos
 
-MVP de um gerenciador interno de projetos e entregas, desenvolvido para rodar como site estático no GitHub Pages, com autenticação e banco PostgreSQL usando Supabase.
+Aplicação web estática em HTML, CSS e JavaScript para GitHub Pages, usando Supabase para autenticação, banco de dados e Storage.
 
-## O que já funciona
+## O que esta versão contempla
 
-- login por e-mail e senha;
-- sessão persistente no navegador;
-- recuperação de senha por e-mail;
-- acesso ao sistema somente com usuário autenticado;
-- dashboard com indicadores de projetos;
-- filtros por texto, status e prioridade;
-- cadastro, edição e exclusão de projetos;
-- acompanhamento por percentual de progresso;
-- destaque de projetos em risco e atrasados;
-- banco protegido por Row Level Security (RLS);
-- deploy automático no GitHub Pages via GitHub Actions;
-- layout responsivo para desktop e celular.
+- Login obrigatório por e-mail e senha via Supabase Auth.
+- Todos os usuários autenticados possuem o mesmo acesso aos projetos.
+- Cadastro e edição de projetos.
+- Status, prioridade, progresso, início, entrega e conclusão automática.
+- Categoria, tags e cor de destaque do projeto.
+- Quadro por status.
+- Linha do tempo do portfólio.
+- Dashboard com indicadores e próximos prazos.
+- Arquivos associados armazenados em bucket privado do Supabase.
+- Links externos associados ao projeto.
+- Data/hora de última alteração (`updated_at`).
+- Sem campo de criador/responsável no modelo atual.
 
-## 1. Criar o projeto no Supabase
+## 1. Configurar o Supabase
 
-1. Acesse o Supabase e crie um novo projeto.
-2. Espere o banco ficar disponível.
-3. Abra **SQL Editor**.
-4. Copie todo o conteúdo de `schema.sql` deste repositório.
-5. Execute o script.
-6. Confirme que a tabela `public.projects` foi criada.
+### Projeto novo
 
-### O que esse script cria
+No SQL Editor, execute `schema.sql`.
 
-A tabela `projects` possui:
+### Projeto que já recebeu o modelo anterior
 
-| Campo | Tipo | Uso |
-|---|---|---|
-| `id` | uuid | identificador do projeto |
-| `title` | text | nome |
-| `description` | text | descrição |
-| `status` | text | Backlog, Planejado, Em andamento, Em risco, Concluído ou Cancelado |
-| `priority` | text | Baixa, Média, Alta ou Urgente |
-| `responsible` | text | responsável/equipe |
-| `progress` | integer | 0 a 100 |
-| `start_date` | date | início |
-| `due_date` | date | entrega |
-| `created_by` | uuid | usuário autenticado que criou |
-| `created_at` | timestamptz | criação |
-| `updated_at` | timestamptz | última atualização |
+Execute `migrate_v3.sql` uma única vez. A migração preserva os projetos existentes e adiciona os campos atuais.
 
-O RLS permite que somente usuários autenticados trabalhem com os registros. Neste primeiro MVP, todos os usuários autenticados do sistema compartilham a visão dos projetos.
+## 2. Autenticação
 
-## 2. Configurar o login
+Em **Authentication > Providers**, mantenha Email habilitado.
 
-No Supabase, abra as configurações de **Authentication**.
+Como o site é interno, é recomendado desabilitar o cadastro público em **Authentication > Settings** e criar os usuários manualmente em **Authentication > Users**.
 
-### Login por e-mail e senha
+Você pode usar **Add user > Send invitation** para cada pessoa do setor.
 
-Mantenha o provedor **Email** habilitado.
+## 3. URL e chave
 
-Para um sistema interno, uma configuração recomendada é desabilitar **Allow new users to sign up**. Assim, somente usuários que já existirem no Supabase conseguem entrar.
+Em **Connect** ou **Settings > API Keys**, copie:
 
-Você poderá criar os usuários manualmente em **Authentication > Users**.
+- Project URL
+- Publishable key (`sb_publishable_...`)
 
-O Supabase também permite exigir confirmação do e-mail antes do primeiro login. Se essa opção estiver ativa, crie/valide os usuários de acordo com a política da empresa.
-
-## 3. Configurar URL do GitHub Pages
-
-No Supabase, procure **Authentication > URL Configuration**.
-
-Defina a **Site URL** como a URL final do site, por exemplo:
-
-`https://SEU-USUARIO.github.io/SEU-REPOSITORIO/`
-
-Para desenvolvimento local, adicione também a URL usada pelo servidor local, por exemplo:
-
-`http://localhost:5500/`
-
-Caso use outra porta, altere o endereço.
-
-A URL usada para recuperação de senha precisa estar na lista de Redirect URLs permitidos.
-
-## 4. Pegar as credenciais do Supabase
-
-Abra **Project Settings > API**.
-
-Copie:
-
-- **Project URL**
-- **Publishable key** (`sb_publishable_...`), quando disponível.
-
-Projetos que ainda usam a chave pública legada **anon** também podem utilizá-la no front-end.
-
-### Muito importante
-
-Nunca coloque no arquivo do site:
-
-- `service_role`;
-- chaves secretas;
-- qualquer credencial com privilégio administrativo.
-
-O arquivo que vai para o GitHub Pages é público. A proteção dos dados é feita pelo usuário autenticado + RLS, não pela tentativa de esconder a chave pública.
-
-## 5. Preencher `config.js`
-
-Abra:
-
-`config.js`
-
-Troque:
+Edite `config.js`:
 
 ```js
 window.APP_CONFIG = {
   supabaseUrl: 'https://SEU-PROJETO.supabase.co',
-  supabaseKey: 'SUA_PUBLISHABLE_KEY'
+  supabaseKey: 'sb_publishable_...'
 };
 ```
 
-pelos dados do seu projeto.
+Nunca coloque uma `sb_secret_...` no projeto do GitHub Pages.
 
-## 6. Criar os usuários do setor
+## 4. Storage
 
-Em **Authentication > Users**, use a opção de criação de usuário.
+O SQL cria o bucket privado `project-files` com limite de 50 MB por arquivo e políticas para usuários autenticados.
 
-Exemplo de estrutura:
+O site envia os arquivos para:
 
-- joao@empresa.com
-- maria@empresa.com
-- supervisor@empresa.com
+```text
+project-files/<id-do-projeto>/<timestamp>-<nome-do-arquivo>
+```
 
-Como o cadastro público pode ficar desabilitado, ninguém consegue criar uma conta sozinho pela tela inicial.
+Para arquivos, o banco registra os metadados na tabela `project_attachments`. Para links, guarda apenas a URL.
 
-## 7. Testar localmente
+## 5. Rodar localmente
 
-Na pasta do projeto, rode:
+Como o app usa módulos/recursos do navegador e callback de autenticação, abra por um servidor local em vez de `file://`.
+
+Exemplo com Python:
 
 ```bash
 python -m http.server 5500
 ```
 
-Depois abra:
-
-`http://localhost:5500/`
-
-Isso é preferível a abrir o `index.html` diretamente pelo Explorer, pois o fluxo de autenticação depende de um endereço HTTP válido.
-
-## 8. Publicar no GitHub Pages
-
-1. Crie um repositório no GitHub.
-2. Envie todos os arquivos deste projeto.
-3. Garanta que a branch principal seja `main`.
-4. O arquivo `.github/workflows/deploy.yml` já está pronto para publicar o site automaticamente.
-5. No GitHub, abra **Settings > Pages**.
-6. Em **Build and deployment > Source**, selecione **GitHub Actions**.
-7. Faça um `push` para `main` e aguarde a execução da Action.
-
-Depois da publicação, use a URL final do Pages nas configurações de URL do Supabase.
-
-## 9. Fluxo de segurança
-
-O funcionamento é:
+Depois acesse:
 
 ```text
-Usuário
-  ↓
-Tela de login
-  ↓
-Supabase Auth
-  ↓
-JWT da sessão
-  ↓
-Supabase Data API
-  ↓
-RLS na tabela projects
-  ↓
-Projetos do setor
+http://localhost:5500/
 ```
 
-Mesmo que alguém descubra a URL e a chave pública do projeto, as operações sobre `projects` continuam dependendo das políticas RLS executadas no banco.
+Adicione essa URL em **Authentication > URL Configuration** do Supabase para os fluxos de recuperação de senha.
 
-## 10. Próxima evolução recomendada
+## 6. Publicar no GitHub Pages
 
-A arquitetura já deixa espaço para evoluir para:
+Suba todos os arquivos para um repositório e habilite:
 
-- tarefas dentro de cada projeto;
-- comentários e histórico de alterações;
-- responsáveis ligados aos usuários do Supabase, em vez de texto livre;
-- níveis de acesso (admin, gestor e membro);
-- anexos em Storage;
-- calendário de entregas;
-- visão Kanban;
-- notificações e lembretes;
-- página individual do projeto;
-- auditoria de quem alterou cada campo.
+**Settings > Pages > Source: GitHub Actions**
 
-## Paleta visual
+O workflow já está incluído em `.github/workflows/deploy.yml`.
 
-A interface usa uma paleta inspirada na identidade visual digital da Master Internet, com azul como cor principal e amarelo como acento. A referência visual pública da marca é a Master Internet sediada em Divinópolis/MG. Como não encontrei um manual público com os códigos hex oficiais durante a montagem, os valores abaixo são uma aproximação de interface e podem ser ajustados quando o logo/manual interno da empresa estiver disponível.
+## Estrutura
 
 ```text
-Azul principal  #0457B7
-Azul escuro     #003D82
-Azul profundo   #082D52
-Ciano           #12A4D9
-Amarelo         #FFC300
-Cinza fundo     #EEF3F7
-Cinza linha     #DDE5ED
-Texto           #17324D
+.
+├── index.html
+├── styles.css
+├── app.js
+├── config.js
+├── schema.sql
+├── migrate_v3.sql
+├── assets/
+│   ├── master-logo.png
+│   └── master-symbol.png
+└── .github/
+    └── workflows/
+        └── deploy.yml
 ```
 
-## Observação sobre o MVP
+## Modelo do banco
 
-Neste primeiro estágio, qualquer usuário autenticado pode visualizar e editar os projetos compartilhados pelo setor. Para uma implantação corporativa definitiva, recomenda-se incluir papéis e permissões no banco antes de usar o sistema com dados sensíveis.
+### `projects`
+
+- `title`
+- `description`
+- `category`
+- `status`
+- `priority`
+- `progress`
+- `start_date`
+- `due_date`
+- `completed_at`
+- `tags`
+- `accent_color`
+- `created_at`
+- `updated_at`
+
+### `project_attachments`
+
+- `project_id`
+- `attachment_type` (`arquivo` ou `link`)
+- `name`
+- `storage_path`
+- `external_url`
+- `mime_type`
+- `size_bytes`
+- `description`
+- `created_at`
+- `updated_at`
+
+## Próximas evoluções possíveis
+
+A base está preparada para receber tarefas/subtarefas, comentários, histórico de alterações, checklists, dependências entre projetos, indicadores de prazo e visualização estilo Gantt mais detalhada.
