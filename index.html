@@ -86,12 +86,13 @@
 
       <nav class="nav-menu" aria-label="Navegação principal">
         <button class="nav-item active" type="button" data-view="dashboard">
-          <span class="nav-icon" aria-hidden="true">⌂</span>
           <span>Visão geral</span>
         </button>
         <button class="nav-item" type="button" data-view="projects">
-          <span class="nav-icon" aria-hidden="true">▦</span>
           <span>Projetos</span>
+        </button>
+        <button class="nav-item" type="button" data-view="settings">
+          <span>Configurações</span>
         </button>
       </nav>
 
@@ -112,22 +113,16 @@
         <div class="topbar-left">
           <button id="openSidebar" class="mobile-menu-button" type="button" aria-label="Abrir menu">☰</button>
           <div>
-            <span class="eyebrow eyebrow-blue">MASTER</span>
+            <span class="brand-title">MASTER PROJETOS</span>
             <h1 id="pageTitle">Visão geral</h1>
           </div>
         </div>
-        <button id="newProjectTopButton" class="primary-button compact-button" type="button">Novo projeto</button>
       </header>
 
       <div class="content-wrap">
         <!-- ==================== DASHBOARD ==================== -->
         <section id="dashboardView" class="view-section">
-          <div class="page-heading">
-            <div>
-              <span class="eyebrow">PORTFÓLIO</span>
-              <h2>Visão geral</h2>
-              <p>Acompanhe as entregas e os próximos prazos.</p>
-            </div>
+          <div class="section-actions">
             <button id="refreshDashboardButton" class="ghost-button" type="button">Atualizar</button>
           </div>
 
@@ -192,15 +187,9 @@
 
         <!-- ==================== PROJECTS ==================== -->
         <section id="projectsView" class="view-section hidden">
-          <div class="page-heading">
-            <div>
-              <span class="eyebrow">PORTFÓLIO</span>
-              <h2>Projetos</h2>
-              <p>Abra qualquer projeto para acompanhar suas etapas.</p>
-            </div>
-          </div>
 
           <div class="project-toolbar">
+            <button id="newProjectButton" class="primary-button project-new-button" type="button">Novo projeto</button>
             <label class="search-field">
               <span class="sr-only">Buscar</span>
               <input id="projectSearch" type="search" placeholder="Buscar projeto...">
@@ -237,9 +226,54 @@
             <span>Ajuste os filtros ou crie um novo projeto.</span>
           </div>
         </section>
+
+        <!-- ==================== SETTINGS ==================== -->
+        <section id="settingsView" class="view-section hidden">
+          <div class="settings-grid">
+            <section class="settings-card">
+              <div class="settings-card-head">
+                <h2>Aparência</h2>
+                <span class="settings-value" id="themeLabel">Claro</span>
+              </div>
+              <div class="settings-row">
+                <div>
+                  <strong>Tema escuro</strong>
+                  <span>Alternar a aparência da plataforma.</span>
+                </div>
+                <button id="themeToggle" class="switch" type="button" role="switch" aria-checked="false" aria-label="Alternar tema escuro">
+                  <span class="switch-thumb"></span>
+                </button>
+              </div>
+            </section>
+
+            <section class="settings-card">
+              <div class="settings-card-head">
+                <h2>Contato</h2>
+              </div>
+              <a id="contactLink" class="contact-link" href="mailto:joao.silva@soumaster.com.br?subject=Master%20Projetos%20-%20Contato&amp;body=Ol%C3%A1%2C%0A%0AGostaria%20de%20entrar%20em%20contato%20sobre%20a%20plataforma%20Master%20Projetos.%0A%0AObrigado!">
+                <span>Entrar em contato</span>
+                <span class="contact-email">joao.silva@soumaster.com.br</span>
+              </a>
+            </section>
+          </div>
+        </section>
       </div>
     </main>
   </section>
+
+  <!-- ==================== PROJECT FOLDER ==================== -->
+  <dialog id="projectFolderDialog" class="modal modal-folder">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div>
+          <h2 id="projectFolderTitle">Projetos</h2>
+          <p id="projectFolderSubtitle"></p>
+        </div>
+        <button id="closeProjectFolderDialog" class="icon-button" type="button" aria-label="Fechar">×</button>
+      </div>
+      <div id="projectFolderContent" class="folder-grid"></div>
+    </div>
+  </dialog>
 
   <!-- ==================== PROJECT FORM ==================== -->
   <dialog id="projectDialog" class="modal modal-large">

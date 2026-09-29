@@ -70,7 +70,6 @@
     resetMessage: $('#resetMessage'),
     cancelResetDialog: $('#cancelResetDialog'),
     closeResetDialog: $('#closeResetDialog'),
-    cancelResetDialog: $('#cancelResetDialog'),
     newPasswordDialog: $('#newPasswordDialog'),
     newPasswordForm: $('#newPasswordForm'),
     newPassword: $('#newPassword'),
@@ -85,9 +84,10 @@
     userName: $('#userName'),
     userEmail: $('#userEmail'),
     logoutButton: $('#logoutButton'),
-    newProjectTopButton: $('#newProjectTopButton'),
+    newProjectButton: $('#newProjectButton'),
     dashboardView: $('#dashboardView'),
     projectsView: $('#projectsView'),
+    settingsView: $('#settingsView'),
     metricTotal: $('#metricTotal'),
     metricInProgress: $('#metricInProgress'),
     metricAtRisk: $('#metricAtRisk'),
@@ -132,7 +132,15 @@
     deleteProjectText: $('#deleteProjectText'),
     closeDeleteDialog: $('#closeDeleteDialog'),
     cancelDeleteButton: $('#cancelDeleteButton'),
-    confirmDeleteButton: $('#confirmDeleteButton')
+    confirmDeleteButton: $('#confirmDeleteButton'),
+    projectFolderDialog: $('#projectFolderDialog'),
+    closeProjectFolderDialog: $('#closeProjectFolderDialog'),
+    projectFolderTitle: $('#projectFolderTitle'),
+    projectFolderSubtitle: $('#projectFolderSubtitle'),
+    projectFolderContent: $('#projectFolderContent'),
+    themeToggle: $('#themeToggle'),
+    themeLabel: $('#themeLabel'),
+    contactLink: $('#contactLink')
   };
 
   /* ============================================================
@@ -281,6 +289,32 @@
   }
 
   /* ============================================================
+     APARÊNCIA
+  ============================================================ */
+  function applyTheme(theme) {
+    const dark = theme === 'dark';
+    document.body.dataset.theme = dark ? 'dark' : 'light';
+    if (refs.themeToggle) {
+      refs.themeToggle.setAttribute('aria-checked', String(dark));
+      refs.themeToggle.classList.toggle('active', dark);
+    }
+    if (refs.themeLabel) refs.themeLabel.textContent = dark ? 'Escuro' : 'Claro';
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#071B33' : '#0C68E8');
+  }
+
+  function initTheme() {
+    const stored = localStorage.getItem('master-projects-theme');
+    const preferred = window.matchMedia?.('(prefers-color-scheme: dark)').matches;
+    applyTheme(stored || (preferred ? 'dark' : 'light'));
+  }
+
+  function toggleTheme() {
+    const next = document.body.dataset.theme === 'dark' ? 'light' : 'dark';
+    localStorage.setItem('master-projects-theme', next);
+    applyTheme(next);
+  }
+
+  /* ============================================================
      AUTENTICAÇÃO
   ============================================================ */
   function showAuth() {
@@ -411,10 +445,22 @@
      NAVEGAÇÃO
   ============================================================ */
   function setView(view) {
-    const isDashboard = view === 'dashboard';
-    refs.dashboardView.classList.toggle('hidden', !isDashboard);
-    refs.projectsView.classList.toggle('hidden', isDashboard);
-    refs.pageTitle.textContent = isDashboard ? 'Visão geral' : 'Projetos';
+    const views = {
+      dashboard: refs.dashboardView,
+      projects: refs.projectsView,
+      settings: refs.settingsView
+    };
+
+    Object.entries(views).forEach(([key, element]) => {
+      element.classList.toggle('hidden', key !== view);
+    });
+
+    refs.pageTitle.textContent = {
+      dashboard: 'Visão geral',
+      projects: 'Projetos',
+      settings: 'Configurações'
+    }[view] || 'Visão geral';
+
     $$('.nav-item').forEach((item) => item.classList.toggle('active', item.dataset.view === view));
     closeSidebar();
   }
@@ -634,28 +680,49 @@
       const items = projects
         .filter((project) => project.status === status)
         .sort((a, b) => (a.due_date || '9999-12-31').localeCompare(b.due_date || '9999-12-31'));
+      const preview = items.slice(0, 3);
+      const remaining = Math.max(items.length - preview.length, 0);
+
       return `
-        <section class="board-column">
-          <div class="board-header">
-            <span class="board-title">${escapeHtml(status)}</span>
+        <section class="board-folder" data-open-folder="${escapeHtml(status)}" tabindex="0" role="button" aria-label="Abrir ${escapeHtml(status)}">
+          <header class="folder-header">
+            <div class="folder-title-wrap">
+              <span class="folder-dot" style="--folder-color:${STATUS_COLOR[status]}"></span>
+              <span class="folder-title">${escapeHtml(status)}</span>
+            </div>
             <span class="board-count">${items.length}</span>
+          </header>
+          <div class="folder-preview">
+            ${preview.length ? preview.map((project) => renderProjectCard(project, true)).join('') : '<div class="folder-empty">—</div>'}
           </div>
-          <div class="board-items">
-            ${items.length ? items.map(renderProjectCard).join('') : '<div class="detail-empty">Vazio</div>'}
-          </div>
+          ${remaining ? `<div class="folder-more">+${remaining} projetos</div>` : ''}
         </section>
       `;
     }).join('');
   }
 
-  function renderProjectCard(project) {
+  function renderProjectCard(project, compact = false) {
     const stats = checklistStats(project);
-    const tags = Array.isArray(project.tags) ? project.tags : [];
     const overdue = isOverdue(project);
+    const doneRatio = stats.total ? Math.round((stats.done / stats.total) * 100) : 0;
     const card = document.createElement('article');
-    card.className = 'project-card';
-    card.dataset.openProject = project.id;
+    card.className = `project-card${compact ? ' compact' : ''}`;
+    if (!compact) card.dataset.openProject = project.id;
     setAccent(card, project.accent_color);
+
+    if (compact) {
+      card.innerHTML = `
+        <div class="project-card-title">${escapeHtml(project.title)}</div>
+        <div class="project-card-meta">
+          <span>${stats.done}/${stats.total} etapas</span>
+          <span class="${overdue ? 'overdue-mark' : ''}">${project.due_date ? escapeHtml(formatDate(project.due_date)) : 'Sem prazo'}</span>
+        </div>
+        <div class="card-progress"><span style="--width:${doneRatio}%"></span></div>
+      `;
+      return card.outerHTML;
+    }
+
+    const tags = Array.isArray(project.tags) ? project.tags : [];
     card.innerHTML = `
       <div class="project-card-title">${escapeHtml(project.title)}</div>
       <p class="project-card-description">${escapeHtml(project.description || 'Sem descrição cadastrada.')}</p>
@@ -670,6 +737,19 @@
       ${tags.length ? `<div class="card-tags">${tags.slice(0, 3).map((tag) => `<span class="category-pill">#${escapeHtml(tag)}</span>`).join('')}</div>` : ''}
     `;
     return card.outerHTML;
+  }
+
+  function openProjectFolder(status) {
+    const items = getFilteredProjects()
+      .filter((project) => project.status === status)
+      .sort((a, b) => (a.due_date || '9999-12-31').localeCompare(b.due_date || '9999-12-31'));
+
+    refs.projectFolderTitle.textContent = status;
+    refs.projectFolderSubtitle.textContent = `${items.length} projeto${items.length === 1 ? '' : 's'}`;
+    refs.projectFolderContent.innerHTML = items.length
+      ? items.map((project) => renderProjectCard(project)).join('')
+      : '<div class="detail-empty">Nenhum projeto nesta categoria.</div>';
+    refs.projectFolderDialog.showModal();
   }
 
   function renderPortfolioTimeline(projects) {
@@ -1250,7 +1330,7 @@
     refs.newPasswordForm.addEventListener('submit', handleNewPassword);
 
     $$('.nav-item').forEach((button) => button.addEventListener('click', () => setView(button.dataset.view)));
-    refs.newProjectTopButton.addEventListener('click', openNewProjectDialog);
+    refs.newProjectButton.addEventListener('click', openNewProjectDialog);
     refs.refreshDashboardButton.addEventListener('click', loadProjects);
     refs.seeAllProjectsButton.addEventListener('click', () => setView('projects'));
     refs.logoutButton.addEventListener('click', handleLogout);
@@ -1267,11 +1347,29 @@
     });
     refs.projectViewButtons.forEach((button) => button.addEventListener('click', () => setProjectView(button.dataset.projectView)));
 
-    [refs.projectsBoard, refs.projectsTimeline, refs.upcomingProjects, refs.dashboardTimeline].forEach((container) => {
+    [refs.projectsTimeline, refs.upcomingProjects, refs.dashboardTimeline].forEach((container) => {
       container.addEventListener('click', (event) => {
         const openTarget = event.target.closest('[data-open-project]');
         if (openTarget) openProjectDetail(openTarget.dataset.openProject);
       });
+    });
+
+    refs.projectsBoard.addEventListener('click', (event) => {
+      const projectTarget = event.target.closest('[data-open-project]');
+      if (projectTarget) {
+        openProjectDetail(projectTarget.dataset.openProject);
+        return;
+      }
+      const folderTarget = event.target.closest('[data-open-folder]');
+      if (folderTarget) openProjectFolder(folderTarget.dataset.openFolder);
+    });
+
+    refs.projectsBoard.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      const folderTarget = event.target.closest('[data-open-folder]');
+      if (!folderTarget) return;
+      event.preventDefault();
+      openProjectFolder(folderTarget.dataset.openFolder);
     });
 
     refs.projectForm.addEventListener('submit', saveProject);
@@ -1338,6 +1436,15 @@
       state.currentProjectId = null;
     });
 
+    refs.closeProjectFolderDialog.addEventListener('click', () => refs.projectFolderDialog.close());
+    refs.projectFolderContent.addEventListener('click', (event) => {
+      const openTarget = event.target.closest('[data-open-project]');
+      if (!openTarget) return;
+      refs.projectFolderDialog.close();
+      openProjectDetail(openTarget.dataset.openProject);
+    });
+    refs.themeToggle.addEventListener('click', toggleTheme);
+
     refs.closeDeleteDialog.addEventListener('click', () => refs.deleteDialog.close());
     refs.cancelDeleteButton.addEventListener('click', () => refs.deleteDialog.close());
     refs.confirmDeleteButton.addEventListener('click', confirmDelete);
@@ -1346,6 +1453,7 @@
   /* ============================================================
      INÍCIO
   ============================================================ */
+  initTheme();
   wireEvents();
   initAuth();
 })();
