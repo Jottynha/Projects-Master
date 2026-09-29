@@ -126,6 +126,9 @@
     projectTags: $('#projectTags'),
     projectColor: $('#projectColor'),
     projectColorPicker: $('#projectColorPicker'),
+    projectColorInput: $('#projectColorInput'),
+    projectColorHex: $('#projectColorHex'),
+    projectColorPreview: $('#projectColorPreview'),
     projectStartDate: $('#projectStartDate'),
     projectDueDate: $('#projectDueDate'),
     projectCompletedDate: $('#projectCompletedDate'),
@@ -242,7 +245,8 @@
   }
 
   function safeColor(color) {
-    return PROJECT_COLORS.includes(color) ? color : PROJECT_COLORS[0];
+    const value = String(color || '').trim().toUpperCase();
+    return /^#[0-9A-F]{6}$/.test(value) ? value : PROJECT_COLORS[0];
   }
 
   function parseTags(value) {
@@ -608,11 +612,11 @@
 
   function renderTimelineItem(project) {
     const date = timelineDate(project);
-    const label = project.status === 'Concluído' && project.completed_at
-      ? `Concluído em ${formatDate(date)}`
+    const eventLabel = project.status === 'Concluído' && project.completed_at
+      ? 'Conclusão'
       : project.due_date
-        ? `Entrega ${formatDate(project.due_date)}`
-        : `Atualizado ${formatDate(date)}`;
+        ? 'Entrega'
+        : 'Atualização';
     const stats = checklistStats(project);
     const card = document.createElement('div');
     card.className = 'timeline-card';
@@ -629,23 +633,41 @@
 
     const wrapper = document.createElement('div');
     wrapper.className = 'timeline-item';
-    wrapper.innerHTML = `<div class="timeline-date">${escapeHtml(label)}</div>`;
+    wrapper.innerHTML = `
+      <div class="timeline-date">
+        <strong>${escapeHtml(formatDate(date))}</strong>
+        <span>${escapeHtml(eventLabel)}</span>
+      </div>`;
     wrapper.appendChild(card);
     return wrapper.outerHTML;
   }
 
+  function normalizeSearchText(value) {
+    return String(value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
+  }
+
   function getFilteredProjects() {
-    const search = refs.projectSearch.value.trim().toLowerCase();
+    const search = normalizeSearchText(refs.projectSearch.value);
     const status = refs.statusFilter.value;
     const priority = refs.priorityFilter.value;
     const category = refs.categoryFilter.value;
 
     return state.projects.filter((project) => {
-      const haystack = [project.title, project.description, project.category, ...(Array.isArray(project.tags) ? project.tags : [])]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase();
-      return (!search || haystack.includes(search))
+      const tags = Array.isArray(project.tags) ? project.tags : [];
+      const searchable = [
+        project.title,
+        project.description,
+        project.category,
+        ...tags,
+        ...tags.map((tag) => `#${tag}`)
+      ];
+      const haystack = normalizeSearchText(searchable.filter(Boolean).join(' '));
+
+      return (!search || haystack.includes(search.replace(/^#+/, '')) || haystack.includes(search))
         && (status === 'all' || project.status === status)
         && (priority === 'all' || project.priority === priority)
         && (category === 'all' || project.category === category);
@@ -824,8 +846,11 @@
   function setColorPicker(color) {
     const chosen = safeColor(color);
     refs.projectColor.value = chosen;
+    if (refs.projectColorInput) refs.projectColorInput.value = chosen;
+    if (refs.projectColorHex) refs.projectColorHex.value = chosen;
+    if (refs.projectColorPreview) refs.projectColorPreview.style.setProperty('--project-color', chosen);
     $$('.color-option', refs.projectColorPicker).forEach((button) => {
-      button.classList.toggle('selected', button.dataset.color === chosen);
+      button.classList.toggle('selected', button.dataset.color.toUpperCase() === chosen);
     });
   }
 
@@ -844,7 +869,6 @@
     refs.projectId.value = '';
     refs.projectStatus.value = 'Backlog';
     refs.projectPriority.value = 'Média';
-    refs.projectColor.value = PROJECT_COLORS[0];
     refs.projectCompletedDate.value = '';
     setColorPicker(PROJECT_COLORS[0]);
     state.steps = [];
@@ -1446,6 +1470,20 @@
     refs.projectColorPicker.addEventListener('click', (event) => {
       const button = event.target.closest('.color-option');
       if (button) setColorPicker(button.dataset.color);
+    });
+
+    refs.projectColorInput.addEventListener('input', (event) => {
+      setColorPicker(event.target.value);
+    });
+
+    refs.projectColorHex.addEventListener('input', (event) => {
+      const raw = event.target.value.trim();
+      const normalized = raw.startsWith('#') ? raw : `#${raw}`;
+      if (/^#[0-9a-fA-F]{6}$/.test(normalized)) setColorPicker(normalized);
+    });
+
+    refs.projectColorHex.addEventListener('blur', () => {
+      refs.projectColorHex.value = safeColor(refs.projectColor.value);
     });
 
     refs.projectDetailContent.addEventListener('change', (event) => {
