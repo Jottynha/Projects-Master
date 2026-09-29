@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0457B7">
+  <meta name="description" content="Gerenciador de projetos e entregas do setor">
+  <title>Master | Gestão de Projetos</title>
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <section id="authView" class="auth-shell">
+    <div class="auth-brand-panel">
+      <div class="brand-lockup brand-lockup-light">
+        <span class="brand-mark" aria-hidden="true">M</span>
+        <div>
+          <strong>MASTER</strong>
+          <span>Gestão de Projetos</span>
+        </div>
+      </div>
+
+      <div class="auth-hero-copy">
+        <span class="eyebrow">SETOR • ENTREGAS • PROJETOS</span>
+        <h1>Tenha uma visão clara do que precisa ser entregue.</h1>
+        <p>Centralize projetos, prazos, responsáveis, prioridades e andamento em um único lugar.</p>
+      </div>
+
+      <div class="auth-brand-footer">
+        <span class="status-dot"></span>
+        Ambiente interno
+      </div>
+    </div>
+
+    <div class="auth-form-panel">
+      <div class="auth-card">
+        <div class="mobile-brand brand-lockup">
+          <span class="brand-mark" aria-hidden="true">M</span>
+          <div>
+            <strong>MASTER</strong>
+            <span>Gestão de Projetos</span>
+          </div>
+        </div>
+
+        <div class="form-heading">
+          <span class="eyebrow">ACESSO RESTRITO</span>
+          <h2>Entrar no sistema</h2>
+          <p>Use seu e-mail corporativo e sua senha.</p>
+        </div>
+
+        <form id="loginForm" class="stack-form">
+          <label>
+            <span>E-mail</span>
+            <input id="loginEmail" type="email" autocomplete="username" placeholder="seu.email@empresa.com" required>
+          </label>
+
+          <label>
+            <span>Senha</span>
+            <div class="password-field">
+              <input id="loginPassword" type="password" autocomplete="current-password" placeholder="Digite sua senha" required>
+              <button type="button" class="icon-button" id="togglePassword" aria-label="Mostrar senha">◉</button>
+            </div>
+          </label>
+
+          <div class="form-row form-row-between">
+            <span></span>
+            <button type="button" class="link-button" id="forgotPasswordBtn">Esqueci a senha</button>
+          </div>
+
+          <button class="primary-button full-button" id="loginButton" type="submit">
+            <span>Entrar</span>
+            <span class="button-spinner" aria-hidden="true"></span>
+          </button>
+
+          <p id="loginMessage" class="form-message" role="alert"></p>
+        </form>
+
+        <div class="login-note">
+          <span class="lock-icon" aria-hidden="true">⌑</span>
+          O cadastro de usuários é feito pelo administrador no Supabase.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="appView" class="app-shell hidden">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-top">
+        <div class="brand-lockup">
+          <span class="brand-mark" aria-hidden="true">M</span>
+          <div>
+            <strong>MASTER</strong>
+            <span>Gestão de Projetos</span>
+          </div>
+        </div>
+
+        <button type="button" class="mobile-sidebar-close" id="closeSidebar" aria-label="Fechar menu">×</button>
+      </div>
+
+      <nav class="nav-menu" aria-label="Navegação principal">
+        <button class="nav-item active" data-view="dashboard" type="button">
+          <span class="nav-icon">⌂</span>
+          <span>Visão geral</span>
+        </button>
+        <button class="nav-item" data-view="projects" type="button">
+          <span class="nav-icon">▦</span>
+          <span>Projetos</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-bottom">
+        <div class="mini-status">
+          <span class="status-dot"></span>
+          <div>
+            <strong>Supabase conectado</strong>
+            <span>Dados sincronizados</span>
+          </div>
+        </div>
+        <button id="logoutButton" type="button" class="sidebar-logout">Sair da conta</button>
+      </div>
+    </aside>
+
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <main class="main-content">
+      <header class="topbar">
+        <button type="button" class="mobile-menu-button" id="openSidebar" aria-label="Abrir menu">☰</button>
+        <div class="topbar-title">
+          <span class="eyebrow">PAINEL</span>
+          <h1 id="pageTitle">Visão geral</h1>
+        </div>
+        <div class="topbar-actions">
+          <div class="user-chip">
+            <div class="avatar" id="userAvatar">U</div>
+            <div class="user-chip-copy">
+              <strong id="userName">Usuário</strong>
+              <span id="userEmail">—</span>
+            </div>
+          </div>
+          <button class="primary-button compact-button" id="newProjectTopButton" type="button">+ Novo projeto</button>
+        </div>
+      </header>
+
+      <div class="content-wrap">
+        <section id="dashboardView" class="view-section">
+          <div class="page-intro">
+            <div>
+              <span class="eyebrow">ACOMPANHAMENTO</span>
+              <h2>O que está acontecendo?</h2>
+              <p>Uma visão rápida das entregas cadastradas pelo setor.</p>
+            </div>
+            <button class="ghost-button" id="refreshDashboardButton" type="button">↻ Atualizar</button>
+          </div>
+
+          <div class="metrics-grid">
+            <article class="metric-card metric-card-blue">
+              <div class="metric-label">Projetos</div>
+              <div class="metric-value" id="metricTotal">0</div>
+              <div class="metric-caption">Total cadastrado</div>
+            </article>
+            <article class="metric-card metric-card-cyan">
+              <div class="metric-label">Em andamento</div>
+              <div class="metric-value" id="metricInProgress">0</div>
+              <div class="metric-caption">Trabalhos ativos</div>
+            </article>
+            <article class="metric-card metric-card-yellow">
+              <div class="metric-label">Em risco</div>
+              <div class="metric-value" id="metricAtRisk">0</div>
+              <div class="metric-caption">Precisam de atenção</div>
+            </article>
+            <article class="metric-card metric-card-gray">
+              <div class="metric-label">Concluídos</div>
+              <div class="metric-value" id="metricDone">0</div>
+              <div class="metric-caption">Entregas finalizadas</div>
+            </article>
+          </div>
+
+          <div class="dashboard-grid">
+            <section class="panel panel-wide">
+              <div class="panel-header">
+                <div>
+                  <span class="eyebrow">PRÓXIMAS ENTREGAS</span>
+                  <h3>Projetos com prazo mais próximo</h3>
+                </div>
+                <button class="link-button" id="seeAllProjectsButton" type="button">Ver todos</button>
+              </div>
+              <div id="upcomingProjects" class="upcoming-list"></div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-header">
+                <div>
+                  <span class="eyebrow">STATUS</span>
+                  <h3>Distribuição</h3>
+                </div>
+              </div>
+              <div id="statusBreakdown" class="status-breakdown"></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="projectsView" class="view-section hidden">
+          <div class="page-intro projects-intro">
+            <div>
+              <span class="eyebrow">PORTFÓLIO</span>
+              <h2>Projetos e entregas</h2>
+              <p>Cadastre, atualize e acompanhe os projetos do setor.</p>
+            </div>
+            <button class="primary-button" id="newProjectButton" type="button">+ Novo projeto</button>
+          </div>
+
+          <section class="panel">
+            <div class="filters-bar">
+              <label class="search-field">
+                <span>⌕</span>
+                <input id="projectSearch" type="search" placeholder="Buscar por projeto, responsável ou descrição...">
+              </label>
+              <select id="statusFilter" aria-label="Filtrar por status">
+                <option value="all">Todos os status</option>
+                <option value="Backlog">Backlog</option>
+                <option value="Planejado">Planejado</option>
+                <option value="Em andamento">Em andamento</option>
+                <option value="Em risco">Em risco</option>
+                <option value="Concluído">Concluído</option>
+                <option value="Cancelado">Cancelado</option>
+              </select>
+              <select id="priorityFilter" aria-label="Filtrar por prioridade">
+                <option value="all">Todas as prioridades</option>
+                <option value="Urgente">Urgente</option>
+                <option value="Alta">Alta</option>
+                <option value="Média">Média</option>
+                <option value="Baixa">Baixa</option>
+              </select>
+            </div>
+
+            <div class="table-wrap">
+              <table class="projects-table">
+                <thead>
+                  <tr>
+                    <th>Projeto</th>
+                    <th>Status</th>
+                    <th>Prioridade</th>
+                    <th>Responsável</th>
+                    <th>Prazo</th>
+                    <th>Progresso</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="projectsTableBody"></tbody>
+              </table>
+            </div>
+
+            <div id="emptyProjects" class="empty-state hidden">
+              <div class="empty-icon">▦</div>
+              <h3>Nenhum projeto encontrado</h3>
+              <p>Cadastre o primeiro projeto ou altere os filtros de busca.</p>
+              <button class="primary-button" id="emptyNewProjectButton" type="button">+ Cadastrar projeto</button>
+            </div>
+          </section>
+        </section>
+      </div>
+    </main>
+  </section>
+
+  <dialog id="projectDialog" class="modal-dialog">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div>
+          <span class="eyebrow">PROJETO</span>
+          <h2 id="dialogTitle">Novo projeto</h2>
+        </div>
+        <button type="button" class="icon-button modal-close" id="closeProjectDialog" aria-label="Fechar">×</button>
+      </div>
+
+      <form id="projectForm" class="project-form">
+        <input id="projectId" type="hidden">
+
+        <div class="form-grid form-grid-2">
+          <label class="span-2">
+            <span>Nome do projeto *</span>
+            <input id="projectTitle" type="text" required maxlength="120" placeholder="Ex.: Implantação do novo fluxo de cobrança">
+          </label>
+
+          <label class="span-2">
+            <span>Descrição</span>
+            <textarea id="projectDescription" rows="4" maxlength="500" placeholder="Objetivo, escopo e observações principais..."></textarea>
+          </label>
+
+          <label>
+            <span>Status *</span>
+            <select id="projectStatus" required>
+              <option value="Backlog">Backlog</option>
+              <option value="Planejado">Planejado</option>
+              <option value="Em andamento">Em andamento</option>
+              <option value="Em risco">Em risco</option>
+              <option value="Concluído">Concluído</option>
+              <option value="Cancelado">Cancelado</option>
+            </select>
+          </label>
+
+          <label>
+            <span>Prioridade *</span>
+            <select id="projectPriority" required>
+              <option value="Baixa">Baixa</option>
+              <option value="Média" selected>Média</option>
+              <option value="Alta">Alta</option>
+              <option value="Urgente">Urgente</option>
+            </select>
+          </label>
+
+          <label>
+            <span>Responsável</span>
+            <input id="projectResponsible" type="text" maxlength="100" placeholder="Nome da pessoa ou equipe">
+          </label>
+
+          <label>
+            <span>Progresso (%)</span>
+            <input id="projectProgress" type="number" min="0" max="100" step="1" value="0">
+          </label>
+
+          <label>
+            <span>Data de início</span>
+            <input id="projectStartDate" type="date">
+          </label>
+
+          <label>
+            <span>Data de entrega</span>
+            <input id="projectDueDate" type="date">
+          </label>
+        </div>
+
+        <p id="projectFormMessage" class="form-message" role="alert"></p>
+
+        <div class="modal-footer">
+          <button type="button" class="ghost-button" id="cancelProjectButton">Cancelar</button>
+          <button type="submit" class="primary-button" id="saveProjectButton">
+            <span>Salvar projeto</span>
+            <span class="button-spinner" aria-hidden="true"></span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </dialog>
+
+  <dialog id="deleteDialog" class="modal-dialog modal-dialog-small">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div>
+          <span class="eyebrow">CONFIRMAÇÃO</span>
+          <h2>Excluir projeto?</h2>
+        </div>
+        <button type="button" class="icon-button modal-close" id="closeDeleteDialog" aria-label="Fechar">×</button>
+      </div>
+      <p id="deleteProjectText" class="delete-copy">Essa ação não poderá ser desfeita.</p>
+      <div class="modal-footer">
+        <button type="button" class="ghost-button" id="cancelDeleteButton">Cancelar</button>
+        <button type="button" class="danger-button" id="confirmDeleteButton">Excluir</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="resetDialog" class="modal-dialog modal-dialog-small">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div>
+          <span class="eyebrow">RECUPERAÇÃO</span>
+          <h2>Redefinir senha</h2>
+        </div>
+        <button type="button" class="icon-button modal-close" id="closeResetDialog" aria-label="Fechar">×</button>
+      </div>
+      <p class="delete-copy">Digite o e-mail da sua conta. O Supabase enviará um link para redefinição.</p>
+      <form id="resetRequestForm" class="stack-form">
+        <label>
+          <span>E-mail</span>
+          <input id="resetEmail" type="email" required placeholder="seu.email@empresa.com">
+        </label>
+        <p id="resetMessage" class="form-message" role="alert"></p>
+        <button type="submit" class="primary-button full-button">Enviar link</button>
+      </form>
+    </div>
+  </dialog>
+
+  <dialog id="newPasswordDialog" class="modal-dialog modal-dialog-small">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div>
+          <span class="eyebrow">RECUPERAÇÃO</span>
+          <h2>Defina uma nova senha</h2>
+        </div>
+      </div>
+      <form id="newPasswordForm" class="stack-form">
+        <label>
+          <span>Nova senha</span>
+          <input id="newPassword" type="password" minlength="8" required placeholder="Mínimo de 8 caracteres">
+        </label>
+        <label>
+          <span>Confirmar nova senha</span>
+          <input id="newPasswordConfirm" type="password" minlength="8" required placeholder="Repita a senha">
+        </label>
+        <p id="newPasswordMessage" class="form-message" role="alert"></p>
+        <button type="submit" class="primary-button full-button">Salvar nova senha</button>
+      </form>
+    </div>
+  </dialog>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
