@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0C68E8">
   <meta name="description" content="Gestão de projetos e entregas da Master">
-  <title>Master | Projetos Cobranças</title>
+  <title>Master | Projetos</title>
 
   <link rel="icon" type="image/png" href="assets/master-symbol.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -91,6 +91,9 @@
         <button class="nav-item" type="button" data-view="projects">
           <span>Projetos</span>
         </button>
+        <button class="nav-item" type="button" data-view="guide">
+          <span>Guia de uso</span>
+        </button>
         <button class="nav-item" type="button" data-view="settings">
           <span>Configurações</span>
         </button>
@@ -113,7 +116,7 @@
         <div class="topbar-left">
           <button id="openSidebar" class="mobile-menu-button" type="button" aria-label="Abrir menu">☰</button>
           <div>
-            <span class="brand-title">MASTER PROJETOS COBRANÇAS</span>
+            <span class="brand-title">MASTER PROJETOS</span>
             <h1 id="pageTitle">Visão geral</h1>
           </div>
         </div>
@@ -213,7 +216,7 @@
               <option>Média</option>
               <option>Baixa</option>
             </select>
-            <select id="categoryFilter" aria-label="Filtrar por categoria">
+            <select id="categoryFilter" aria-label="Filtrar por área ou categoria">
               <option value="all">Todas as categorias</option>
             </select>
             <div class="view-switch" role="group" aria-label="Visualização">
@@ -236,6 +239,76 @@
             <strong>Nenhum projeto encontrado.</strong>
             <span>Ajuste os filtros ou crie um novo projeto.</span>
           </div>
+        </section>
+
+        <!-- ==================== GUIDE ==================== -->
+        <section id="guideView" class="view-section hidden">
+          <div class="guide-hero">
+            <span class="eyebrow">GUIA RÁPIDO</span>
+            <h2>Master Projetos</h2>
+            <p>Uma visão simples de como cadastrar, acompanhar, concluir e guardar o histórico dos projetos.</p>
+          </div>
+
+          <div class="guide-grid">
+            <article class="guide-card guide-card-featured">
+              <div class="guide-step">01</div>
+              <div>
+                <h3>Crie o projeto</h3>
+                <p>Em <strong>Novo projeto</strong>, informe o nome, a descrição e a área do trabalho.</p>
+                <span>Descrição = contexto e objetivo do projeto.</span>
+              </div>
+            </article>
+            <article class="guide-card">
+              <div class="guide-step">02</div>
+              <div>
+                <h3>Organize por área e tags</h3>
+                <p><strong>Área / categoria</strong> é padronizada. <strong>Tags</strong> continuam livres para nomes de ferramentas, campanhas, clientes, indicadores e outros detalhes.</p>
+                <span>Ex.: Área “Régua de Cobrança” + tags “WhatsApp, 15 dias, automação”.</span>
+              </div>
+            </article>
+            <article class="guide-card">
+              <div class="guide-step">03</div>
+              <div>
+                <h3>Monte as etapas</h3>
+                <p>Cadastre as atividades na ordem de execução. O percentual do projeto é acompanhado pelas etapas concluídas.</p>
+                <span>Você também pode marcar etapas diretamente no detalhe do projeto.</span>
+              </div>
+            </article>
+            <article class="guide-card">
+              <div class="guide-step">04</div>
+              <div>
+                <h3>Conclua com resultado</h3>
+                <p>Ao terminar, registre em <strong>Resultados obtidos</strong> o que foi entregue, ganho, indicador, economia, aprendizado ou impacto observado.</p>
+                <span>Isso transforma o projeto em histórico útil para consulta futura.</span>
+              </div>
+            </article>
+            <article class="guide-card">
+              <div class="guide-step">05</div>
+              <div>
+                <h3>Use as pastas do Quadro</h3>
+                <p>Em <strong>Projetos → Quadro</strong>, cada status funciona como uma pasta. Clique em uma pasta para visualizar o conjunto de projetos.</p>
+                <span>A pasta pode ser exportada em PDF, respeitando os filtros aplicados na tela.</span>
+              </div>
+            </article>
+            <article class="guide-card">
+              <div class="guide-step">06</div>
+              <div>
+                <h3>Guarde um backup</h3>
+                <p>Use <strong>Backup geral</strong> para salvar um arquivo JSON com a estrutura dos projetos. No detalhe de um projeto, também é possível salvar o backup individual.</p>
+                <span>O PDF é ideal para apresentação; o JSON é o formato de backup dos dados.</span>
+              </div>
+            </article>
+          </div>
+
+          <section class="guide-panel">
+            <div>
+              <span class="eyebrow">COMO USAR NO DIA A DIA</span>
+              <h3>Fluxo recomendado</h3>
+            </div>
+            <div class="guide-flow">
+              <span>Planejar</span><b>→</b><span>Executar</span><b>→</b><span>Acompanhar etapas</span><b>→</b><span>Registrar resultado</span><b>→</b><span>Concluir</span><b>→</b><span>Arquivar / exportar</span>
+            </div>
+          </section>
         </section>
 
         <!-- ==================== SETTINGS ==================== -->
@@ -262,12 +335,8 @@
                 <h2>Contato</h2>
               </div>
               <a id="contactLink" class="contact-link" href="mailto:joao.silva@soumaster.com.br?subject=Master%20Projetos%20-%20Contato&amp;body=Ol%C3%A1%2C%0A%0AGostaria%20de%20entrar%20em%20contato%20sobre%20a%20plataforma%20Master%20Projetos.%0A%0AObrigado!">
-                <span>Entrar em contato (Desenvolvedor)</span>
+                <span>Entrar em contato</span>
                 <span class="contact-email">joao.silva@soumaster.com.br</span>
-              </a>
-              <a id="contactLink" class="contact-link" href="mailto:vanesse.vasconcelos@soumaster.com.br?subject=Master%20Projetos%20-%20Contato&amp;body=Ol%C3%A1%2C%0A%0AGostaria%20de%20entrar%20em%20contato%20sobre%20a%20plataforma%20Master%20Projetos.%0A%0AObrigado!">
-                <span>Entrar em contato (Head do Setor)</span>
-                <span class="contact-email">vanesse.vasconcelos@soumaster.com.br</span>
               </a>
             </section>
           </div>
@@ -284,7 +353,10 @@
           <h2 id="projectFolderTitle">Projetos</h2>
           <p id="projectFolderSubtitle"></p>
         </div>
-        <button id="closeProjectFolderDialog" class="icon-button" type="button" aria-label="Fechar">×</button>
+        <div class="modal-header-actions">
+          <button id="saveFolderPdfButton" class="ghost-button" type="button">Salvar pasta em PDF</button>
+          <button id="closeProjectFolderDialog" class="icon-button" type="button" aria-label="Fechar">×</button>
+        </div>
       </div>
       <div id="projectFolderContent" class="folder-grid"></div>
     </div>
@@ -322,12 +394,14 @@
                 <textarea id="projectResults" maxlength="10000" placeholder="Registre os resultados alcançados, ganhos, indicadores, aprendizados ou entregas finais."></textarea>
               </label>
               <label class="field">
-                <span>Categoria</span>
-                <input id="projectCategory" maxlength="80" placeholder="Ex.: BI, Automação">
+                <span>Área / categoria</span>
+                <select id="projectCategory" aria-describedby="projectCategoryHelp"></select>
+                <small id="projectCategoryHelp" class="field-help">Escolha uma área geral. As tags livres servem para detalhes específicos.</small>
               </label>
               <label class="field">
-                <span>Tags</span>
-                <input id="projectTags" maxlength="300" placeholder="Ex.: powerbi, supabase">
+                <span>Tags livres</span>
+                <input id="projectTags" maxlength="300" placeholder="Ex.: powerbi, supabase, 75-dias">
+                <small class="field-help">Use termos livres separados por vírgula para facilitar a busca.</small>
               </label>
             </div>
           </section>

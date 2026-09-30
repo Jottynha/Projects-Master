@@ -12,6 +12,35 @@
 
   const STATUS = ['Backlog', 'Planejado', 'Em andamento', 'Em risco', 'Concluído', 'Cancelado'];
   const PRIORITIES = ['Baixa', 'Média', 'Alta', 'Urgente'];
+  const CATEGORY_GROUPS = [
+    { label: 'Cobrança', items: [
+      'Estratégia e Gestão',
+      'Régua de Cobrança',
+      'Inadimplência',
+      'Recuperação de Crédito',
+      'Negociação',
+      'B2B'
+    ]},
+    { label: 'Canais de Cobrança', items: [
+      'WhatsApp',
+      'E-mail',
+      'Telefonia',
+      'SMS'
+    ]},
+    { label: 'Dados e Tecnologia', items: [
+      'Dados & BI',
+      'Automação',
+      'Integrações',
+      'Sistemas'
+    ]},
+    { label: 'Operação', items: [
+      'Processos',
+      'Atendimento',
+      'Governança'
+    ]},
+    { label: 'Outros', items: ['Outros'] }
+  ];
+  const STANDARD_CATEGORIES = CATEGORY_GROUPS.flatMap((group) => group.items);
   const PROJECT_COLORS = ['#0C68E8', '#2F80ED', '#0EA5E9', '#F5C400', '#66778A'];
   const STATUS_CLASS = {
     'Backlog': 'status-backlog',
@@ -41,6 +70,7 @@
     session: null,
     projects: [],
     currentProjectId: null,
+    currentFolderStatus: null,
     deleteProjectId: null,
     projectView: 'board',
     timelineSortField: 'due_date',
@@ -91,6 +121,7 @@
     dashboardView: $('#dashboardView'),
     projectsView: $('#projectsView'),
     settingsView: $('#settingsView'),
+    guideView: $('#guideView'),
     metricTotal: $('#metricTotal'),
     metricInProgress: $('#metricInProgress'),
     metricAtRisk: $('#metricAtRisk'),
@@ -146,6 +177,7 @@
     confirmDeleteButton: $('#confirmDeleteButton'),
     projectFolderDialog: $('#projectFolderDialog'),
     closeProjectFolderDialog: $('#closeProjectFolderDialog'),
+    saveFolderPdfButton: $('#saveFolderPdfButton'),
     projectFolderTitle: $('#projectFolderTitle'),
     projectFolderSubtitle: $('#projectFolderSubtitle'),
     projectFolderContent: $('#projectFolderContent'),
@@ -495,7 +527,8 @@
     const views = {
       dashboard: refs.dashboardView,
       projects: refs.projectsView,
-      settings: refs.settingsView
+      settings: refs.settingsView,
+      guide: refs.guideView
     };
 
     Object.entries(views).forEach(([key, element]) => {
@@ -505,7 +538,8 @@
     refs.pageTitle.textContent = {
       dashboard: 'Visão geral',
       projects: 'Projetos',
-      settings: 'Configurações'
+      settings: 'Configurações',
+      guide: 'Guia de uso'
     }[view] || 'Visão geral';
 
     $$('.nav-item').forEach((item) => item.classList.toggle('active', item.dataset.view === view));
@@ -711,20 +745,77 @@
     });
   }
 
+  function renderCategoryOptions(select, options = {}) {
+    if (!select) return;
+    const { includeAll = false, selected = '', preserveCustom = true } = options;
+    const custom = preserveCustom && selected && !STANDARD_CATEGORIES.includes(selected) ? [selected] : [];
+    select.innerHTML = includeAll ? '<option value="all">Todas as categorias</option>' : '<option value="">Selecione uma área</option>';
+
+    CATEGORY_GROUPS.forEach((group) => {
+      const optgroup = document.createElement('optgroup');
+      optgroup.label = group.label;
+      group.items.forEach((item) => {
+        const option = document.createElement('option');
+        option.value = item;
+        option.textContent = item;
+        optgroup.appendChild(option);
+      });
+      select.appendChild(optgroup);
+    });
+
+    if (custom.length) {
+      const optgroup = document.createElement('optgroup');
+      optgroup.label = 'Categorias existentes';
+      custom.forEach((item) => {
+        const option = document.createElement('option');
+        option.value = item;
+        option.textContent = item;
+        optgroup.appendChild(option);
+      });
+      select.appendChild(optgroup);
+    }
+
+    if (selected && [...select.options].some((option) => option.value === selected)) {
+      select.value = selected;
+    } else if (!includeAll) {
+      select.value = '';
+    }
+  }
+
   function populateCategoryFilter() {
     const current = refs.categoryFilter.value || 'all';
-    const categories = [...new Set(
-      state.projects.map((project) => String(project.category || '').trim()).filter(Boolean)
+    const legacyCategories = [...new Set(
+      state.projects
+        .map((project) => String(project.category || '').trim())
+        .filter((category) => category && !STANDARD_CATEGORIES.includes(category))
     )].sort((a, b) => a.localeCompare(b, 'pt-BR'));
 
     refs.categoryFilter.innerHTML = '<option value="all">Todas as categorias</option>';
-    categories.forEach((category) => {
-      const option = document.createElement('option');
-      option.value = category;
-      option.textContent = category;
-      refs.categoryFilter.appendChild(option);
+    CATEGORY_GROUPS.forEach((group) => {
+      const optgroup = document.createElement('optgroup');
+      optgroup.label = group.label;
+      group.items.forEach((category) => {
+        const option = document.createElement('option');
+        option.value = category;
+        option.textContent = category;
+        optgroup.appendChild(option);
+      });
+      refs.categoryFilter.appendChild(optgroup);
     });
-    refs.categoryFilter.value = categories.includes(current) ? current : 'all';
+
+    if (legacyCategories.length) {
+      const optgroup = document.createElement('optgroup');
+      optgroup.label = 'Categorias existentes';
+      legacyCategories.forEach((category) => {
+        const option = document.createElement('option');
+        option.value = category;
+        option.textContent = category;
+        optgroup.appendChild(option);
+      });
+      refs.categoryFilter.appendChild(optgroup);
+    }
+
+    refs.categoryFilter.value = [...refs.categoryFilter.options].some((option) => option.value === current) ? current : 'all';
   }
 
   function renderProjects() {
@@ -810,8 +901,10 @@
       .filter((project) => project.status === status)
       .sort((a, b) => (a.due_date || '9999-12-31').localeCompare(b.due_date || '9999-12-31'));
 
+    state.currentFolderStatus = status;
     refs.projectFolderTitle.textContent = status;
-    refs.projectFolderSubtitle.textContent = `${items.length} projeto${items.length === 1 ? '' : 's'}`;
+    refs.projectFolderSubtitle.textContent = `${items.length} projeto${items.length === 1 ? '' : 's'}${status === 'Concluído' ? ' • Portfólio concluído' : ''}`;
+    refs.saveFolderPdfButton.disabled = items.length === 0;
     refs.projectFolderContent.innerHTML = items.length
       ? items.map((project) => renderProjectCard(project)).join('')
       : '<div class="detail-empty">Nenhum projeto nesta categoria.</div>';
@@ -908,6 +1001,7 @@
     refs.projectPriority.value = 'Média';
     refs.projectCompletedDate.value = '';
     refs.projectResults.value = '';
+    renderCategoryOptions(refs.projectCategory);
     setColorPicker(PROJECT_COLORS[0]);
     state.steps = [];
     renderStepBuilder();
@@ -933,7 +1027,7 @@
     refs.projectDescription.value = project.description || '';
     refs.projectStatus.value = project.status || 'Backlog';
     refs.projectPriority.value = project.priority || 'Média';
-    refs.projectCategory.value = project.category || '';
+    renderCategoryOptions(refs.projectCategory, { selected: project.category || '' });
     refs.projectTags.value = tagsText(project.tags);
     refs.projectStartDate.value = project.start_date || '';
     refs.projectDueDate.value = project.due_date || '';
@@ -1454,6 +1548,82 @@
     }
   }
 
+  async function printProjectFolderPdf(status = state.currentFolderStatus) {
+    if (!status) return;
+
+    const items = getFilteredProjects()
+      .filter((project) => project.status === status)
+      .sort((a, b) => (a.due_date || a.completed_at || '9999-12-31').localeCompare(b.due_date || b.completed_at || '9999-12-31'));
+
+    if (!items.length) {
+      showToast('Não há projetos nesta pasta para exportar.', 'error');
+      return;
+    }
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      showToast('O navegador bloqueou a janela do PDF. Permita pop-ups para esta página.', 'error');
+      return;
+    }
+
+    refs.saveFolderPdfButton.disabled = true;
+    refs.saveFolderPdfButton.textContent = 'Preparando PDF...';
+    printWindow.document.write('<p style="font-family:Arial,sans-serif;padding:40px">Preparando o PDF...</p>');
+    printWindow.document.close();
+
+    try {
+      const grouped = attachmentsByProject(await loadAllAttachmentsForBackup(items.map((project) => project.id)));
+      const esc = escapeHtml;
+      const projectRows = items.map((project, index) => {
+        const stats = checklistStats(project);
+        const tags = Array.isArray(project.tags) ? project.tags : [];
+        const checklist = normalizeChecklist(project.checklist);
+        const stepMarkup = checklist.length
+          ? `<ul>${checklist.map((step) => `<li class="${step.done ? 'done' : ''}">${step.done ? '✓' : '○'} ${esc(step.title)}</li>`).join('')}</ul>`
+          : '<p class="muted">Nenhuma etapa cadastrada.</p>';
+        const attachments = grouped[project.id] || [];
+        const attachmentMarkup = attachments.length
+          ? `<ul>${attachments.map((item) => `<li><strong>${esc(item.attachment_type === 'link' ? 'Link' : 'Arquivo')}:</strong> ${esc(item.name || item.external_url || item.storage_path || 'Sem nome')}</li>`).join('')}</ul>`
+          : '<p class="muted">Nenhum arquivo ou link associado.</p>';
+
+        return `<article class="project-section" style="border-left-color:${safeColor(project.accent_color)}">
+          <div class="project-number">Projeto ${index + 1}</div>
+          <h2>${esc(project.title)}</h2>
+          <div class="chips"><span>${esc(project.status)}</span><span>${esc(project.priority)}</span>${project.category ? `<span>${esc(project.category)}</span>` : ''}</div>
+          <div class="meta-grid">
+            <div><span>Início</span><strong>${esc(formatDate(project.start_date))}</strong></div>
+            <div><span>Entrega</span><strong>${esc(formatDate(project.due_date))}</strong></div>
+            <div><span>Conclusão</span><strong>${esc(project.completed_at ? formatDateTime(project.completed_at) : '—')}</strong></div>
+            <div><span>Etapas</span><strong>${stats.done}/${stats.total}</strong></div>
+          </div>
+          <section><h3>Descrição</h3><p>${esc(project.description || 'Sem descrição cadastrada.')}</p></section>
+          <section><h3>Resultados obtidos</h3><p>${esc(project.results || 'Nenhum resultado registrado.')}</p></section>
+          <section><h3>Tags</h3><p>${esc(tags.length ? tags.map((tag) => `#${tag}`).join(', ') : '—')}</p></section>
+          <section><h3>Etapas</h3>${stepMarkup}</section>
+          <section><h3>Arquivos e links</h3>${attachmentMarkup}</section>
+        </article>`;
+      }).join('');
+
+      const subtitle = status === 'Concluído'
+        ? 'Portfólio de projetos concluídos e resultados registrados.'
+        : `Projetos na pasta “${status}”.`;
+
+      const html = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>${esc(status)} — Master Projetos</title>
+<style>
+*{box-sizing:border-box}body{font-family:Arial,Helvetica,sans-serif;color:#172B3D;margin:0;padding:34px;background:#fff}main{max-width:900px;margin:auto}.brand{font-size:12px;font-weight:800;letter-spacing:.14em;color:#0C68E8}.hero{padding:18px 0 24px;border-bottom:3px solid ${safeColor(STATUS_COLOR[status])}}.eyebrow{font-size:10px;color:#66778A;font-weight:800;letter-spacing:.1em;text-transform:uppercase}.title{font-size:30px;margin:8px 0}.subtitle{font-size:12px;color:#55697C;line-height:1.6}.summary{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}.summary span{padding:7px 10px;border-radius:999px;background:#F3F6F8;font-size:10px;font-weight:800}.project-section{margin-top:24px;padding:18px;border:1px solid #D9E1E7;border-left:4px solid #0C68E8;border-radius:12px;break-inside:avoid}.project-number{font-size:9px;color:#718394;font-weight:800;text-transform:uppercase;letter-spacing:.08em}.project-section h2{font-size:21px;margin:5px 0 8px}.chips{display:flex;flex-wrap:wrap;gap:6px}.chips span{padding:5px 8px;border-radius:999px;background:#F3F6F8;font-size:9px;font-weight:800}.meta-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin:14px 0}.meta-grid div{padding:9px;background:#F7F9FA;border-radius:8px}.meta-grid span{display:block;font-size:8px;color:#758595}.meta-grid strong{display:block;margin-top:3px;font-size:10px}.project-section section{margin-top:14px}.project-section h3{margin:0 0 6px;font-size:11px}.project-section p,.project-section li{font-size:10px;line-height:1.65;color:#34495A;white-space:pre-wrap}.project-section ul{margin:6px 0 0;padding-left:18px}.done{text-decoration:line-through;color:#7D8B97!important}.muted{color:#7D8B97!important}.footer{margin-top:26px;border-top:1px solid #D9E1E7;padding-top:10px;color:#8996A2;font-size:9px}@media print{body{padding:18px}main{max-width:none}.project-section{page-break-inside:avoid}}
+</style></head><body><main><div class="brand">MASTER PROJETOS</div><div class="hero"><div class="eyebrow">PASTA DE PROJETOS</div><div class="title">${esc(status)}</div><div class="subtitle">${esc(subtitle)}</div><div class="summary"><span>${items.length} projeto${items.length === 1 ? '' : 's'}</span><span>Exportado em ${esc(formatDateTime(new Date().toISOString()))}</span></div></div>${projectRows}<div class="footer">Master Projetos · Relatório gerado a partir do conjunto exibido na pasta.</div></main><script>window.onload=()=>{window.focus();setTimeout(()=>window.print(),250);window.onafterprint=()=>window.close();};<\/script></body></html>`;
+      printWindow.document.open();
+      printWindow.document.write(html);
+      printWindow.document.close();
+    } catch (error) {
+      printWindow.close();
+      showToast(error.message || 'Não foi possível gerar o PDF da pasta.', 'error');
+    } finally {
+      refs.saveFolderPdfButton.disabled = false;
+      refs.saveFolderPdfButton.textContent = 'Salvar pasta em PDF';
+    }
+  }
+
   function printProjectPdf(id) {
     const project = projectById(id);
     if (!project) return;
@@ -1707,6 +1877,8 @@
     });
 
     refs.closeProjectFolderDialog.addEventListener('click', () => refs.projectFolderDialog.close());
+    refs.saveFolderPdfButton.addEventListener('click', () => printProjectFolderPdf());
+    refs.projectFolderDialog.addEventListener('close', () => { state.currentFolderStatus = null; });
     refs.projectFolderContent.addEventListener('click', (event) => {
       const openTarget = event.target.closest('[data-open-project]');
       if (!openTarget) return;
