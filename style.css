@@ -25,11 +25,13 @@
   --shadow-lg: 0 25px 75px rgba(6, 30, 68, .18);
   --radius: 16px;
   --sidebar-width: 230px;
+  --page-zoom: 1;
 }
 
 * { box-sizing: border-box; }
 html { min-height: 100%; }
 body {
+  zoom: var(--page-zoom);
   min-height: 100vh;
   margin: 0;
   color: var(--gray-950);
@@ -1101,6 +1103,121 @@ dialog.modal-folder { width: min(1380px, calc(100vw - 22px)); max-height: calc(1
 .modal-folder .folder-grid .project-card { height: fit-content; }
 
 /* Configurações */
+
+
+/* RICH TEXT */
+.rich-field { gap: 8px; }
+.rich-editor {
+  border: 1px solid var(--gray-300);
+  border-radius: 11px;
+  overflow: hidden;
+  background: #fff;
+  transition: border-color .18s ease, box-shadow .18s ease;
+}
+.rich-editor:focus-within {
+  border-color: #8DBDFA;
+  box-shadow: 0 0 0 3px rgba(12,104,232,.09);
+}
+.rich-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 7px;
+  border-bottom: 1px solid var(--gray-200);
+  background: var(--gray-100);
+  flex-wrap: wrap;
+}
+.rich-toolbar button {
+  display: grid;
+  place-items: center;
+  min-width: 30px;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: var(--gray-800);
+  background: transparent;
+  font-size: 11px;
+  font-weight: 800;
+}
+.rich-toolbar button:hover {
+  border-color: var(--gray-300);
+  background: #fff;
+  color: var(--blue);
+}
+.rich-toolbar-separator {
+  width: 1px;
+  height: 20px;
+  margin: 0 3px;
+  background: var(--gray-300);
+}
+.rich-input {
+  min-height: 90px;
+  padding: 11px 12px;
+  outline: none;
+  color: var(--gray-950);
+  font-size: 11px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.rich-title-input {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  white-space: normal;
+}
+.rich-input[data-placeholder]:empty::before {
+  content: attr(data-placeholder);
+  color: var(--gray-500);
+  pointer-events: none;
+}
+.rich-input p { margin: 0 0 8px; }
+.rich-input p:last-child { margin-bottom: 0; }
+.rich-input ul,
+.rich-input ol { margin: 5px 0 7px; padding-left: 22px; }
+.portfolio-description p,
+.project-card-description p,
+.detail-description p,
+.detail-result-copy p { margin: 0 0 6px; }
+.portfolio-description p:last-child,
+.project-card-description p:last-child,
+.detail-description p:last-child,
+.detail-result-copy p:last-child { margin-bottom: 0; }
+.portfolio-title b,
+.portfolio-title strong,
+.project-card-title b,
+.project-card-title strong,
+.detail-title b,
+.detail-title strong { font-weight: 800; }
+.portfolio-description ul,
+.portfolio-description ol,
+.project-card-description ul,
+.project-card-description ol,
+.detail-description ul,
+.detail-description ol,
+.detail-result-copy ul,
+.detail-result-copy ol { margin: 5px 0; padding-left: 20px; }
+
+/* CONFIGURAÇÕES */
+.settings-row-stack {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) minmax(240px, 320px);
+  align-items: center;
+}
+.font-scale-control {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+#fontScaleRange { width: 100%; accent-color: var(--blue); }
+
+@media (max-width: 760px) {
+  .settings-row-stack { grid-template-columns: 1fr; }
+  .font-scale-control { grid-template-columns: 1fr auto; }
+}
+
 .settings-grid { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 14px; max-width: 920px; }
 .settings-card {
   padding: 20px;
@@ -1372,4 +1489,111 @@ body[data-theme="dark"] .guide-panel { background:var(--surface); border-color:v
   .guide-grid { grid-template-columns:1fr; }
   .modal-header-actions { flex-wrap:wrap; justify-content:flex-end; }
   .guide-flow { justify-content:flex-start; }
+}
+/* =========================================================
+   TEMA ESCURO — EDITOR DE TEXTO DENTRO DOS MODAIS
+   ========================================================= */
+
+/* Caixa principal do editor */
+body[data-theme="dark"] dialog.modal .rich-editor {
+  background: #0A2039 !important;
+  border-color: #31506B !important;
+  color: #EAF3FB !important;
+}
+
+/* Barra de ferramentas */
+body[data-theme="dark"] dialog.modal .rich-toolbar {
+  background: #102E4F !important;
+  border-bottom-color: #31506B !important;
+}
+
+/* Botões da barra */
+body[data-theme="dark"] dialog.modal .rich-toolbar button {
+  color: #D2E0EC !important;
+  background: transparent !important;
+  border-color: transparent !important;
+}
+
+/* Hover dos botões */
+body[data-theme="dark"] dialog.modal .rich-toolbar button:hover {
+  color: #7DBBFF !important;
+  background: #173550 !important;
+  border-color: #31506B !important;
+}
+
+/* Separador da toolbar */
+body[data-theme="dark"] dialog.modal .rich-toolbar-separator {
+  background: #31506B !important;
+}
+
+/* Área onde o usuário digita */
+body[data-theme="dark"] dialog.modal .rich-input {
+  background: #0A2039 !important;
+  color: #EAF3FB !important;
+  caret-color: #7DBBFF !important;
+}
+
+/* Título */
+body[data-theme="dark"] dialog.modal .rich-title-input {
+  background: #0A2039 !important;
+  color: #EAF3FB !important;
+}
+
+/* Placeholder */
+body[data-theme="dark"] dialog.modal .rich-input[data-placeholder]:empty::before {
+  color: #8FA8BC !important;
+}
+
+/* Seleção de texto */
+body[data-theme="dark"] dialog.modal .rich-input::selection {
+  background: rgba(125, 187, 255, 0.30) !important;
+  color: #FFFFFF !important;
+}
+
+/* Links */
+body[data-theme="dark"] dialog.modal .rich-input a {
+  color: #7DBBFF !important;
+}
+
+/* Listas */
+body[data-theme="dark"] dialog.modal .rich-input ul,
+body[data-theme="dark"] dialog.modal .rich-input ol {
+  color: #EAF3FB !important;
+}
+
+/* Foco */
+body[data-theme="dark"] dialog.modal .rich-editor:focus-within {
+  background: #0A2039 !important;
+  border-color: #5E9FEF !important;
+  box-shadow: 0 0 0 3px rgba(12, 104, 232, 0.18) !important;
+}
+
+/* =========================================================
+   MODAL DE PROJETO — TEXTOS DO CAMPO RICH TEXT
+   ========================================================= */
+
+body[data-theme="dark"] #projectDialog .rich-field,
+body[data-theme="dark"] #projectDialog .rich-field label,
+body[data-theme="dark"] #projectDialog .rich-field > span {
+  color: #EAF3FB !important;
+}
+
+/* Garantia adicional para qualquer conteúdo criado
+   pelo contenteditable */
+body[data-theme="dark"] #projectDialog .rich-input,
+body[data-theme="dark"] #projectDialog .rich-input * {
+  color: #EAF3FB !important;
+}
+
+/* Mantém a formatação do próprio conteúdo */
+body[data-theme="dark"] #projectDialog .rich-input strong {
+  color: #FFFFFF !important;
+}
+
+body[data-theme="dark"] #projectDialog .rich-input em {
+  color: #EAF3FB !important;
+}
+
+body[data-theme="dark"] #projectDialog .rich-input u {
+  text-decoration-color: #EAF3FB !important;
 }

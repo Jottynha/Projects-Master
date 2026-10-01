@@ -75,6 +75,7 @@
     projectView: 'board',
     timelineSortField: 'due_date',
     timelineSortDirection: 'desc',
+    fontScale: 100,
     steps: [],
     toastTimer: null
   };
@@ -142,6 +143,8 @@
     timelineControls: $('#timelineControls'),
     timelineSortField: $('#timelineSortField'),
     timelineSortDirection: $('#timelineSortDirection'),
+    fontScaleRange: $('#fontScaleRange'),
+    fontScaleLabel: $('#fontScaleLabel'),
     projectDialog: $('#projectDialog'),
     closeProjectDialog: $('#closeProjectDialog'),
     cancelProjectButton: $('#cancelProjectButton'),
@@ -198,6 +201,99 @@
       .replaceAll("'", '&#039;');
   }
 
+  function stripRichHtml(value = '') {
+    const div = document.createElement('div');
+    div.innerHTML = String(value || '');
+    return div.textContent || '';
+  }
+
+  function sanitizeRichHtml(value = '') {
+    const source = document.createElement('div');
+    source.innerHTML = String(value || '');
+    const allowed = new Set(['B', 'STRONG', 'I', 'EM', 'U', 'S', 'BR', 'P', 'DIV', 'UL', 'OL', 'LI']);
+
+    const walk = (node) => {
+      [...node.childNodes].forEach((child) => {
+        if (child.nodeType === Node.TEXT_NODE) return;
+        if (child.nodeType !== Node.ELEMENT_NODE) {
+          child.remove();
+          return;
+        }
+        walk(child);
+        if (!allowed.has(child.tagName)) {
+          const fragment = document.createDocumentFragment();
+          while (child.firstChild) fragment.appendChild(child.firstChild);
+          child.replaceWith(fragment);
+          return;
+        }
+        [...child.attributes].forEach((attr) => child.removeAttribute(attr.name));
+      });
+    };
+
+    walk(source);
+    return source.innerHTML
+      .replace(/^(<br\s*\/?>)+/i, '')
+      .replace(/(<br\s*\/?>)+$/i, '')
+      .trim();
+  }
+
+  function richHtmlOrText(value = '') {
+    const safe = sanitizeRichHtml(value);
+    return safe || escapeHtml(stripRichHtml(value));
+  }
+
+  function editorTextLength(element) {
+    return stripRichHtml(element?.innerHTML || '').replace(/\u00a0/g, ' ').length;
+  }
+
+  function setRichEditorHtml(element, value = '') {
+    if (!element) return;
+    element.innerHTML = sanitizeRichHtml(value) || escapeHtml(value).replace(/\n/g, '<br>');
+  }
+
+  function getRichEditorHtml(element) {
+    return sanitizeRichHtml(element?.innerHTML || '');
+  }
+
+  function initRichEditors() {
+    $$('[data-rich-editor]').forEach((editor) => {
+      const input = $(`#${editor.dataset.richTarget}`, editor);
+      if (!input || editor.dataset.ready === 'true') return;
+      editor.dataset.ready = 'true';
+      if (input.getAttribute('aria-multiline') === 'false') {
+        input.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter') event.preventDefault();
+        });
+      }
+      input.addEventListener('input', () => {
+        const maxLength = Number(editor.dataset.richMaxlength || 0);
+        if (maxLength && editorTextLength(input) > maxLength) {
+          const text = stripRichHtml(input.innerHTML).slice(0, maxLength);
+          input.innerHTML = escapeHtml(text).replace(/\n/g, '<br>');
+          placeCaretAtEnd(input);
+        }
+      });
+      editor.querySelectorAll('[data-rich-command]').forEach((button) => {
+        button.addEventListener('mousedown', (event) => event.preventDefault());
+        button.addEventListener('click', () => {
+          input.focus();
+          document.execCommand(button.dataset.richCommand, false);
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+      });
+    });
+  }
+
+  function placeCaretAtEnd(element) {
+    element.focus();
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    range.collapse(false);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }
+
   function showToast(message, type = 'success') {
     clearTimeout(state.toastTimer);
     refs.toast.textContent = message;
@@ -249,12 +345,15 @@
   }
 
   function safeDownloadName(value, fallback = 'projeto') {
-    return safeFileName(value) || fallback;
+    return safeFileName(stripRichHtml(value)) || fallback;
   }
 
   function projectBackupRecord(project, attachments = []) {
     return {
       ...project,
+      title: sanitizeRichHtml(project.title || ''),
+      description: sanitizeRichHtml(project.description || ''),
+      results: sanitizeRichHtml(project.results || ''),
       checklist: normalizeChecklist(project.checklist),
       tags: Array.isArray(project.tags) ? project.tags : [],
       attachments: attachments.map((item) => ({
@@ -381,10 +480,24 @@
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#071B33' : '#0C68E8');
   }
 
+  function applyFontScale(value) {
+    const numeric = Math.min(160, Math.max(90, Number(value) || 100));
+    state.fontScale = numeric;
+    document.documentElement.style.setProperty('--page-zoom', String(numeric / 100));
+    if (refs.fontScaleRange) refs.fontScaleRange.value = String(numeric);
+    if (refs.fontScaleLabel) refs.fontScaleLabel.textContent = `${numeric}%`;
+  }
+
+  function initFontScale() {
+    const stored = Number(localStorage.getItem('master-projects-font-scale') || 100);
+    applyFontScale(stored);
+  }
+
   function initTheme() {
     const stored = localStorage.getItem('master-projects-theme');
     const preferred = window.matchMedia?.('(prefers-color-scheme: dark)').matches;
     applyTheme(stored || (preferred ? 'dark' : 'light'));
+    initFontScale();
   }
 
   function toggleTheme() {
@@ -580,6 +693,9 @@
 
     state.projects = (data || []).map((project) => ({
       ...project,
+      title: sanitizeRichHtml(project.title || ''),
+      description: sanitizeRichHtml(project.description || ''),
+      results: sanitizeRichHtml(project.results || ''),
       checklist: normalizeChecklist(project.checklist),
       tags: Array.isArray(project.tags) ? project.tags : []
     }));
@@ -640,7 +756,7 @@
       setAccent(item, project.accent_color);
       item.innerHTML = `
         <span class="list-main">
-          <span class="title-line"><span class="project-dot"></span><span class="title-text">${escapeHtml(project.title)}</span></span>
+          <span class="title-line"><span class="project-dot"></span><span class="title-text">${richHtmlOrText(project.title)}</span></span>
           <span class="subtext">${escapeHtml(project.category || 'Sem categoria')} • ${stats.done}/${stats.total} etapas</span>
         </span>
         <span class="deadline ${isOverdue(project) ? 'overdue' : ''}">${escapeHtml(deadlineLabel(project))}</span>
@@ -694,7 +810,7 @@
     card.dataset.openProject = project.id;
     setAccent(card, project.accent_color);
     card.innerHTML = `
-      <div class="timeline-title">${escapeHtml(project.title)}</div>
+      <div class="timeline-title">${richHtmlOrText(project.title)}</div>
       <div class="timeline-meta">
         <span class="status-pill ${STATUS_CLASS[project.status] || 'status-backlog'}">${escapeHtml(project.status)}</span>
         <span class="category-pill">${escapeHtml(project.category || 'Sem categoria')}</span>
@@ -869,7 +985,7 @@
 
     if (compact) {
       card.innerHTML = `
-        <div class="project-card-title">${escapeHtml(project.title)}</div>
+        <div class="project-card-title">${richHtmlOrText(project.title)}</div>
         <div class="project-card-meta">
           <span>${stats.done}/${stats.total} etapas</span>
           <span class="${overdue ? 'overdue-mark' : ''}">${project.due_date ? escapeHtml(formatDate(project.due_date)) : 'Sem prazo'}</span>
@@ -881,8 +997,8 @@
 
     const tags = Array.isArray(project.tags) ? project.tags : [];
     card.innerHTML = `
-      <div class="project-card-title">${escapeHtml(project.title)}</div>
-      <p class="project-card-description">${escapeHtml(project.description || 'Sem descrição cadastrada.')}</p>
+      <div class="project-card-title">${richHtmlOrText(project.title)}</div>
+      <p class="project-card-description">${richHtmlOrText(project.description || 'Sem descrição cadastrada.')}</p>
       <div class="card-tags">
         <span class="priority-pill ${PRIORITY_CLASS[project.priority] || 'priority-media'}">${escapeHtml(project.priority)}</span>
         ${project.category ? `<span class="category-pill">${escapeHtml(project.category)}</span>` : ''}
@@ -913,7 +1029,8 @@
 
   function getTimelineProjectDate(project, field = state.timelineSortField) {
     if (field === 'start_date') return project.start_date || '';
-    if (field === 'completed_at') return project.completed_at ? project.completed_at.slice(0, 10) : '';
+    if (field === 'completed_at') return project.completed_at || '';
+    if (field === 'updated_at') return project.updated_at || '';
     return project.due_date || '';
   }
 
@@ -921,8 +1038,15 @@
     return {
       start_date: 'Início',
       due_date: 'Entrega',
-      completed_at: 'Conclusão'
+      completed_at: 'Conclusão',
+      updated_at: 'Última alteração'
     }[field] || 'Entrega';
+  }
+
+  function timelineDateText(project, field = state.timelineSortField) {
+    const value = getTimelineProjectDate(project, field);
+    if (!value) return 'Sem data';
+    return field === 'updated_at' || field === 'completed_at' ? formatDateTime(value) : formatDate(value);
   }
 
   function compareTimelineDates(a, b) {
@@ -948,23 +1072,24 @@
       setAccent(card, project.accent_color);
       const date = getTimelineProjectDate(project);
       const stats = checklistStats(project);
+      const dateText = timelineDateText(project);
       card.innerHTML = `
         <div class="portfolio-card-head">
-          <span class="portfolio-title">${escapeHtml(project.title)}</span>
+          <span class="portfolio-title">${richHtmlOrText(project.title)}</span>
           <span class="status-pill ${STATUS_CLASS[project.status] || 'status-backlog'}">${escapeHtml(project.status)}</span>
         </div>
-        <p class="portfolio-description">${escapeHtml(project.description || 'Sem descrição cadastrada.')}</p>
+        <div class="portfolio-description">${richHtmlOrText(project.description || 'Sem descrição cadastrada.')}</div>
         <div class="portfolio-meta">
           <span class="category-pill">${escapeHtml(project.category || 'Sem categoria')}</span>
           <span class="priority-pill ${PRIORITY_CLASS[project.priority] || 'priority-media'}">${escapeHtml(project.priority)}</span>
           <span class="category-pill">${stats.done}/${stats.total} etapas</span>
-          <span class="category-pill">${date ? escapeHtml(formatDate(date)) : 'Sem data'}</span>
+          <span class="category-pill">${escapeHtml(dateText)}</span>
         </div>
       `;
 
       const row = document.createElement('div');
       row.className = 'portfolio-row';
-      row.innerHTML = `<div class="portfolio-date"><strong>${escapeHtml(date ? formatDate(date) : '—')}</strong><span>${escapeHtml(dateLabel)}</span></div>`;
+      row.innerHTML = `<div class="portfolio-date"><strong>${escapeHtml(date ? dateText : '—')}</strong><span>${escapeHtml(dateLabel)}</span></div>`;
       row.appendChild(card);
       return row.outerHTML;
     }).join('');
@@ -997,10 +1122,12 @@
   function resetProjectForm() {
     refs.projectForm.reset();
     refs.projectId.value = '';
+    setRichEditorHtml(refs.projectTitle, '');
+    setRichEditorHtml(refs.projectDescription, '');
+    setRichEditorHtml(refs.projectResults, '');
     refs.projectStatus.value = 'Backlog';
     refs.projectPriority.value = 'Média';
     refs.projectCompletedDate.value = '';
-    refs.projectResults.value = '';
     renderCategoryOptions(refs.projectCategory);
     setColorPicker(PROJECT_COLORS[0]);
     state.steps = [];
@@ -1023,8 +1150,8 @@
     refs.dialogTitle.textContent = 'Editar projeto';
     refs.dialogSubtitle.textContent = 'Atualize os dados e as etapas do projeto.';
     refs.projectId.value = project.id;
-    refs.projectTitle.value = project.title || '';
-    refs.projectDescription.value = project.description || '';
+    setRichEditorHtml(refs.projectTitle, project.title || '');
+    setRichEditorHtml(refs.projectDescription, project.description || '');
     refs.projectStatus.value = project.status || 'Backlog';
     refs.projectPriority.value = project.priority || 'Média';
     renderCategoryOptions(refs.projectCategory, { selected: project.category || '' });
@@ -1032,7 +1159,7 @@
     refs.projectStartDate.value = project.start_date || '';
     refs.projectDueDate.value = project.due_date || '';
     refs.projectCompletedDate.value = project.completed_at ? project.completed_at.slice(0, 10) : '';
-    refs.projectResults.value = project.results || '';
+    setRichEditorHtml(refs.projectResults, project.results || '');
     setColorPicker(project.accent_color || PROJECT_COLORS[0]);
     state.steps = normalizeChecklist(project.checklist);
     renderStepBuilder();
@@ -1056,7 +1183,7 @@
 
     const id = refs.projectId.value || null;
     const existingProject = id ? projectById(id) : null;
-    const title = refs.projectTitle.value.trim();
+    const title = stripRichHtml(refs.projectTitle.innerHTML).trim();
     if (!title) {
       setMessage(refs.projectFormMessage, 'Informe o nome do projeto.');
       return;
@@ -1074,9 +1201,9 @@
       : null;
 
     const payload = {
-      title,
-      description: refs.projectDescription.value.trim() || null,
-      results: refs.projectResults.value.trim() || null,
+      title: getRichEditorHtml(refs.projectTitle) || null,
+      description: getRichEditorHtml(refs.projectDescription) || null,
+      results: getRichEditorHtml(refs.projectResults) || null,
       category: refs.projectCategory.value.trim() || null,
       status,
       priority: refs.projectPriority.value,
@@ -1384,8 +1511,8 @@
               <span class="priority-pill ${PRIORITY_CLASS[project.priority] || 'priority-media'}">${escapeHtml(project.priority)}</span>
               ${project.category ? `<span class="category-pill">${escapeHtml(project.category)}</span>` : ''}
             </div>
-            <h2 class="detail-title">${escapeHtml(project.title)}</h2>
-            <p class="detail-description">${escapeHtml(project.description || 'Sem descrição cadastrada.')}</p>
+            <h2 class="detail-title">${richHtmlOrText(project.title)}</h2>
+            <p class="detail-description">${richHtmlOrText(project.description || 'Sem descrição cadastrada.')}</p>
           </div>
           <div class="detail-actions">
             <button class="ghost-button" type="button" data-detail-action="backup-pdf" data-id="${escapeHtml(project.id)}">Salvar PDF</button>
@@ -1400,7 +1527,7 @@
           <div class="detail-main">
             <section class="detail-panel">
               <div class="detail-panel-title"><h3>Resultados obtidos</h3></div>
-              <p class="detail-result-copy">${escapeHtml(project.results || 'Nenhum resultado registrado.')}</p>
+              <p class="detail-result-copy">${richHtmlOrText(project.results || 'Nenhum resultado registrado.')}</p>
             </section>
 
             <section class="detail-panel">
@@ -1588,7 +1715,7 @@
 
         return `<article class="project-section" style="border-left-color:${safeColor(project.accent_color)}">
           <div class="project-number">Projeto ${index + 1}</div>
-          <h2>${esc(project.title)}</h2>
+          <h2>${richHtmlOrText(project.title)}</h2>
           <div class="chips"><span>${esc(project.status)}</span><span>${esc(project.priority)}</span>${project.category ? `<span>${esc(project.category)}</span>` : ''}</div>
           <div class="meta-grid">
             <div><span>Início</span><strong>${esc(formatDate(project.start_date))}</strong></div>
@@ -1596,8 +1723,8 @@
             <div><span>Conclusão</span><strong>${esc(project.completed_at ? formatDateTime(project.completed_at) : '—')}</strong></div>
             <div><span>Etapas</span><strong>${stats.done}/${stats.total}</strong></div>
           </div>
-          <section><h3>Descrição</h3><p>${esc(project.description || 'Sem descrição cadastrada.')}</p></section>
-          <section><h3>Resultados obtidos</h3><p>${esc(project.results || 'Nenhum resultado registrado.')}</p></section>
+          <section><h3>Descrição</h3><div class="rich-copy">${richHtmlOrText(project.description || 'Sem descrição cadastrada.')}</div></section>
+          <section><h3>Resultados obtidos</h3><div class="rich-copy">${richHtmlOrText(project.results || 'Nenhum resultado registrado.')}</div></section>
           <section><h3>Tags</h3><p>${esc(tags.length ? tags.map((tag) => `#${tag}`).join(', ') : '—')}</p></section>
           <section><h3>Etapas</h3>${stepMarkup}</section>
           <section><h3>Arquivos e links</h3>${attachmentMarkup}</section>
@@ -1610,7 +1737,7 @@
 
       const html = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>${esc(status)} — Master Projetos</title>
 <style>
-*{box-sizing:border-box}body{font-family:Arial,Helvetica,sans-serif;color:#172B3D;margin:0;padding:34px;background:#fff}main{max-width:900px;margin:auto}.brand{font-size:12px;font-weight:800;letter-spacing:.14em;color:#0C68E8}.hero{padding:18px 0 24px;border-bottom:3px solid ${safeColor(STATUS_COLOR[status])}}.eyebrow{font-size:10px;color:#66778A;font-weight:800;letter-spacing:.1em;text-transform:uppercase}.title{font-size:30px;margin:8px 0}.subtitle{font-size:12px;color:#55697C;line-height:1.6}.summary{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}.summary span{padding:7px 10px;border-radius:999px;background:#F3F6F8;font-size:10px;font-weight:800}.project-section{margin-top:24px;padding:18px;border:1px solid #D9E1E7;border-left:4px solid #0C68E8;border-radius:12px;break-inside:avoid}.project-number{font-size:9px;color:#718394;font-weight:800;text-transform:uppercase;letter-spacing:.08em}.project-section h2{font-size:21px;margin:5px 0 8px}.chips{display:flex;flex-wrap:wrap;gap:6px}.chips span{padding:5px 8px;border-radius:999px;background:#F3F6F8;font-size:9px;font-weight:800}.meta-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin:14px 0}.meta-grid div{padding:9px;background:#F7F9FA;border-radius:8px}.meta-grid span{display:block;font-size:8px;color:#758595}.meta-grid strong{display:block;margin-top:3px;font-size:10px}.project-section section{margin-top:14px}.project-section h3{margin:0 0 6px;font-size:11px}.project-section p,.project-section li{font-size:10px;line-height:1.65;color:#34495A;white-space:pre-wrap}.project-section ul{margin:6px 0 0;padding-left:18px}.done{text-decoration:line-through;color:#7D8B97!important}.muted{color:#7D8B97!important}.footer{margin-top:26px;border-top:1px solid #D9E1E7;padding-top:10px;color:#8996A2;font-size:9px}@media print{body{padding:18px}main{max-width:none}.project-section{page-break-inside:avoid}}
+*{box-sizing:border-box}body{font-family:Arial,Helvetica,sans-serif;color:#172B3D;margin:0;padding:34px;background:#fff}main{max-width:900px;margin:auto}.brand{font-size:12px;font-weight:800;letter-spacing:.14em;color:#0C68E8}.hero{padding:18px 0 24px;border-bottom:3px solid ${safeColor(STATUS_COLOR[status])}}.eyebrow{font-size:10px;color:#66778A;font-weight:800;letter-spacing:.1em;text-transform:uppercase}.title{font-size:30px;margin:8px 0}.subtitle{font-size:12px;color:#55697C;line-height:1.6}.summary{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}.summary span{padding:7px 10px;border-radius:999px;background:#F3F6F8;font-size:10px;font-weight:800}.project-section{margin-top:24px;padding:18px;border:1px solid #D9E1E7;border-left:4px solid #0C68E8;border-radius:12px;break-inside:avoid}.project-number{font-size:9px;color:#718394;font-weight:800;text-transform:uppercase;letter-spacing:.08em}.project-section h2{font-size:21px;margin:5px 0 8px}.chips{display:flex;flex-wrap:wrap;gap:6px}.chips span{padding:5px 8px;border-radius:999px;background:#F3F6F8;font-size:9px;font-weight:800}.meta-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin:14px 0}.meta-grid div{padding:9px;background:#F7F9FA;border-radius:8px}.meta-grid span{display:block;font-size:8px;color:#758595}.meta-grid strong{display:block;margin-top:3px;font-size:10px}.project-section section{margin-top:14px}.project-section h3{margin:0 0 6px;font-size:11px}.project-section p,.project-section li,.project-section .rich-copy{font-size:10px;line-height:1.65;color:#34495A}.project-section .rich-copy p{margin:0 0 7px}.project-section .rich-copy p:last-child{margin-bottom:0}.project-section ul{margin:6px 0 0;padding-left:18px}.done{text-decoration:line-through;color:#7D8B97!important}.muted{color:#7D8B97!important}.footer{margin-top:26px;border-top:1px solid #D9E1E7;padding-top:10px;color:#8996A2;font-size:9px}@media print{body{padding:18px}main{max-width:none}.project-section{page-break-inside:avoid}}
 </style></head><body><main><div class="brand">MASTER PROJETOS</div><div class="hero"><div class="eyebrow">PASTA DE PROJETOS</div><div class="title">${esc(status)}</div><div class="subtitle">${esc(subtitle)}</div><div class="summary"><span>${items.length} projeto${items.length === 1 ? '' : 's'}</span><span>Exportado em ${esc(formatDateTime(new Date().toISOString()))}</span></div></div>${projectRows}<div class="footer">Master Projetos · Relatório gerado a partir do conjunto exibido na pasta.</div></main><script>window.onload=()=>{window.focus();setTimeout(()=>window.print(),250);window.onafterprint=()=>window.close();};<\/script></body></html>`;
       printWindow.document.open();
       printWindow.document.write(html);
@@ -1655,17 +1782,17 @@
       const html = `<!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8"><title>${esc(project.title)} — Master Projetos</title>
 <style>
-*{box-sizing:border-box}body{font-family:Arial,Helvetica,sans-serif;color:#172B3D;margin:0;padding:40px;background:#fff}main{max-width:900px;margin:auto}.brand{font-size:12px;font-weight:800;letter-spacing:.14em;color:#0C68E8;margin-bottom:28px}.head{border-bottom:3px solid ${safeColor(project.accent_color)};padding-bottom:20px}.kicker{font-size:11px;color:#66778A;font-weight:700;text-transform:uppercase;letter-spacing:.08em}.title{font-size:30px;margin:8px 0}.subtitle{font-size:13px;line-height:1.6;color:#43566A}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:18px 0}.meta{padding:12px;background:#F3F6F8;border-radius:10px}.meta span{display:block;color:#66778A;font-size:10px}.meta strong{display:block;margin-top:4px;font-size:13px}.section{margin-top:24px}.section h2{font-size:16px;margin:0 0 8px}.copy{font-size:12px;line-height:1.75;white-space:pre-wrap;color:#2F4355}.list{margin:8px 0 0;padding-left:20px;font-size:12px;line-height:1.7}.done{text-decoration:line-through;color:#7D8B97}.footer{margin-top:35px;font-size:10px;color:#8A98A4;border-top:1px solid #D9E1E7;padding-top:12px}@media print{body{padding:20px}main{max-width:none}}
+*{box-sizing:border-box}body{font-family:Arial,Helvetica,sans-serif;color:#172B3D;margin:0;padding:40px;background:#fff}main{max-width:900px;margin:auto}.brand{font-size:12px;font-weight:800;letter-spacing:.14em;color:#0C68E8;margin-bottom:28px}.head{border-bottom:3px solid ${safeColor(project.accent_color)};padding-bottom:20px}.kicker{font-size:11px;color:#66778A;font-weight:700;text-transform:uppercase;letter-spacing:.08em}.title{font-size:30px;margin:8px 0}.subtitle{font-size:13px;line-height:1.6;color:#43566A}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:18px 0}.meta{padding:12px;background:#F3F6F8;border-radius:10px}.meta span{display:block;color:#66778A;font-size:10px}.meta strong{display:block;margin-top:4px;font-size:13px}.section{margin-top:24px}.section h2{font-size:16px;margin:0 0 8px}.copy{font-size:12px;line-height:1.75;white-space:pre-wrap;color:#2F4355}.rich-copy p{margin:0 0 7px}.rich-copy p:last-child{margin-bottom:0}.rich-copy ul,.rich-copy ol{margin:5px 0;padding-left:20px}.list{margin:8px 0 0;padding-left:20px;font-size:12px;line-height:1.7}.done{text-decoration:line-through;color:#7D8B97}.footer{margin-top:35px;font-size:10px;color:#8A98A4;border-top:1px solid #D9E1E7;padding-top:12px}@media print{body{padding:20px}main{max-width:none}}
 </style></head><body><main>
 <div class="brand">MASTER PROJETOS</div>
-<div class="head"><div class="kicker">${esc(project.status)} · ${esc(project.priority)}${project.category ? ` · ${esc(project.category)}` : ''}</div><div class="title">${esc(project.title)}</div><div class="subtitle">${esc(project.description || 'Sem descrição cadastrada.')}</div></div>
+<div class="head"><div class="kicker">${esc(project.status)} · ${esc(project.priority)}${project.category ? ` · ${esc(project.category)}` : ''}</div><div class="title">${richHtmlOrText(project.title)}</div><div class="subtitle rich-copy">${richHtmlOrText(project.description || 'Sem descrição cadastrada.')}</div></div>
 <div class="grid">
 <div class="meta"><span>Início</span><strong>${esc(formatDate(project.start_date))}</strong></div>
 <div class="meta"><span>Entrega</span><strong>${esc(formatDate(project.due_date))}</strong></div>
 <div class="meta"><span>Conclusão</span><strong>${esc(project.completed_at ? formatDateTime(project.completed_at) : '—')}</strong></div>
 <div class="meta"><span>Tags</span><strong>${esc(tags.length ? tags.map((tag) => `#${tag}`).join(', ') : '—')}</strong></div>
 </div>
-<div class="section"><h2>Resultados obtidos</h2><div class="copy">${esc(project.results || 'Nenhum resultado registrado.')}</div></div>
+<div class="section"><h2>Resultados obtidos</h2><div class="copy rich-copy">${richHtmlOrText(project.results || 'Nenhum resultado registrado.')}</div></div>
 <div class="section"><h2>Etapas</h2><ul class="list">${stepRows}</ul></div>
 <div class="section"><h2>Arquivos e links</h2><ul class="list">${attachmentRows}</ul></div>
 <div class="footer">Exportado em ${esc(formatDateTime(new Date().toISOString()))} · Master Projetos</div>
@@ -1681,7 +1808,14 @@
   ============================================================ */
   function replaceProject(project) {
     const index = state.projects.findIndex((item) => item.id === project.id);
-    const normalized = { ...project, checklist: normalizeChecklist(project.checklist), tags: Array.isArray(project.tags) ? project.tags : [] };
+    const normalized = {
+      ...project,
+      title: sanitizeRichHtml(project.title || ''),
+      description: sanitizeRichHtml(project.description || ''),
+      results: sanitizeRichHtml(project.results || ''),
+      checklist: normalizeChecklist(project.checklist),
+      tags: Array.isArray(project.tags) ? project.tags : []
+    };
     if (index >= 0) state.projects[index] = normalized;
     else state.projects.unshift(normalized);
   }
@@ -1690,7 +1824,7 @@
     const project = projectById(id);
     if (!project) return;
     state.deleteProjectId = id;
-    refs.deleteProjectText.textContent = `O projeto “${project.title}” será excluído junto com seus registros de arquivos e links.`;
+    refs.deleteProjectText.textContent = `O projeto “${stripRichHtml(project.title)}” será excluído junto com seus registros de arquivos e links.`;
     refs.deleteDialog.showModal();
   }
 
@@ -1886,6 +2020,10 @@
       openProjectDetail(openTarget.dataset.openProject);
     });
     refs.themeToggle.addEventListener('click', toggleTheme);
+    refs.fontScaleRange.addEventListener('input', (event) => {
+      applyFontScale(event.target.value);
+      localStorage.setItem('master-projects-font-scale', String(state.fontScale));
+    });
 
     refs.closeDeleteDialog.addEventListener('click', () => refs.deleteDialog.close());
     refs.cancelDeleteButton.addEventListener('click', () => refs.deleteDialog.close());
@@ -1896,6 +2034,7 @@
      INÍCIO
   ============================================================ */
   initTheme();
+  initRichEditors();
   wireEvents();
   initAuth();
 })();

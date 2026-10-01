@@ -228,6 +228,7 @@
                 <option value="due_date">Entrega</option>
                 <option value="start_date">Início</option>
                 <option value="completed_at">Conclusão</option>
+                <option value="updated_at">Última alteração</option>
               </select>
               <button id="timelineSortDirection" class="ghost-button compact-button" type="button" aria-label="Alternar ordem">↓ Descendente</button>
             </div>
@@ -328,6 +329,16 @@
                   <span class="switch-thumb"></span>
                 </button>
               </div>
+              <div class="settings-row settings-row-stack">
+                <div>
+                  <strong>Tamanho da visualização</strong>
+                  <span>Aumenta ou reduz toda a interface para facilitar a leitura. Esta preferência fica salva neste navegador.</span>
+                </div>
+                <div class="font-scale-control">
+                  <input id="fontScaleRange" type="range" min="90" max="160" step="10" value="100" aria-label="Tamanho da visualização geral">
+                  <output id="fontScaleLabel" class="settings-value" for="fontScaleRange">100%</output>
+                </div>
+              </div>
             </section>
 
             <section class="settings-card">
@@ -381,17 +392,51 @@
           <section class="form-section">
             <div class="section-title">Informações</div>
             <div class="form-grid form-grid-2">
-              <label class="field span-2">
+              <label class="field span-2 rich-field">
                 <span>Nome *</span>
-                <input id="projectTitle" maxlength="140" required>
+                <div class="rich-editor" data-rich-editor data-rich-target="projectTitle" data-rich-maxlength="140">
+                  <div class="rich-toolbar" role="toolbar" aria-label="Formatação do nome">
+                    <button type="button" data-rich-command="bold" aria-label="Negrito"><strong>B</strong></button>
+                    <button type="button" data-rich-command="italic" aria-label="Itálico"><em>I</em></button>
+                    <button type="button" data-rich-command="underline" aria-label="Sublinhado"><u>U</u></button>
+                    <button type="button" data-rich-command="strikeThrough" aria-label="Tachado"><s>S</s></button>
+                    <span class="rich-toolbar-separator" aria-hidden="true"></span>
+                    <button type="button" data-rich-command="removeFormat" aria-label="Limpar formatação">Tx</button>
+                  </div>
+                  <div id="projectTitle" class="rich-input rich-title-input" contenteditable="true" role="textbox" aria-multiline="false" data-placeholder="Nome do projeto"></div>
+                </div>
               </label>
-              <label class="field span-2">
+              <label class="field span-2 rich-field">
                 <span>Descrição</span>
-                <textarea id="projectDescription" maxlength="5000" placeholder="Objetivo, escopo e observações"></textarea>
+                <div class="rich-editor" data-rich-editor data-rich-target="projectDescription" data-rich-maxlength="5000">
+                  <div class="rich-toolbar" role="toolbar" aria-label="Formatação da descrição">
+                    <button type="button" data-rich-command="bold" aria-label="Negrito"><strong>B</strong></button>
+                    <button type="button" data-rich-command="italic" aria-label="Itálico"><em>I</em></button>
+                    <button type="button" data-rich-command="underline" aria-label="Sublinhado"><u>U</u></button>
+                    <button type="button" data-rich-command="strikeThrough" aria-label="Tachado"><s>S</s></button>
+                    <button type="button" data-rich-command="insertUnorderedList" aria-label="Lista com marcadores">•</button>
+                    <button type="button" data-rich-command="insertOrderedList" aria-label="Lista numerada">1.</button>
+                    <span class="rich-toolbar-separator" aria-hidden="true"></span>
+                    <button type="button" data-rich-command="removeFormat" aria-label="Limpar formatação">Tx</button>
+                  </div>
+                  <div id="projectDescription" class="rich-input" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="Objetivo, escopo e observações"></div>
+                </div>
               </label>
-              <label class="field span-2">
+              <label class="field span-2 rich-field">
                 <span>Resultados obtidos</span>
-                <textarea id="projectResults" maxlength="10000" placeholder="Registre os resultados alcançados, ganhos, indicadores, aprendizados ou entregas finais."></textarea>
+                <div class="rich-editor" data-rich-editor data-rich-target="projectResults" data-rich-maxlength="10000">
+                  <div class="rich-toolbar" role="toolbar" aria-label="Formatação dos resultados">
+                    <button type="button" data-rich-command="bold" aria-label="Negrito"><strong>B</strong></button>
+                    <button type="button" data-rich-command="italic" aria-label="Itálico"><em>I</em></button>
+                    <button type="button" data-rich-command="underline" aria-label="Sublinhado"><u>U</u></button>
+                    <button type="button" data-rich-command="strikeThrough" aria-label="Tachado"><s>S</s></button>
+                    <button type="button" data-rich-command="insertUnorderedList" aria-label="Lista com marcadores">•</button>
+                    <button type="button" data-rich-command="insertOrderedList" aria-label="Lista numerada">1.</button>
+                    <span class="rich-toolbar-separator" aria-hidden="true"></span>
+                    <button type="button" data-rich-command="removeFormat" aria-label="Limpar formatação">Tx</button>
+                  </div>
+                  <div id="projectResults" class="rich-input" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="Registre os resultados alcançados, ganhos, indicadores, aprendizados ou entregas finais."></div>
+                </div>
               </label>
               <label class="field">
                 <span>Área / categoria</span>
